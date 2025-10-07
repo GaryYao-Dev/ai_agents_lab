@@ -1,0 +1,16 @@
+[
+  {
+    "type": "user_details",
+    "email": "john@gmail.com",
+    "name": "John",
+    "notes": "User inquired about my education and profession, then expressed interest in getting in touch."
+  },
+  {
+    "type": "unknown_question",
+    "question": "what's your age?"
+  },
+  {
+    "type": "unknown_question",
+    "question": "what's your age"
+  }
+]

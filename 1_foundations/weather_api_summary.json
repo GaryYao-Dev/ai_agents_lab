@@ -1,0 +1,288 @@
+{
+  "api_name": "WeatherAPI",
+  "base_url": "http://api.weatherapi.com/v1",
+  "authentication": {
+    "method": "API key parameter",
+    "parameter": "key",
+    "required": true
+  },
+  "endpoints": [
+    {
+      "name": "Current Weather",
+      "method": "/current.json",
+      "description": "Get real-time weather data",
+      "required_parameters": [
+        "q"
+      ],
+      "optional_parameters": [
+        "aqi",
+        "pollen",
+        "lang"
+      ]
+    },
+    {
+      "name": "Forecast",
+      "method": "/forecast.json",
+      "description": "Get weather forecast (1-14 days)",
+      "required_parameters": [
+        "q",
+        "days"
+      ],
+      "optional_parameters": [
+        "dt",
+        "unixdt",
+        "aqi",
+        "pollen",
+        "alerts",
+        "lang"
+      ]
+    },
+    {
+      "name": "Search/Autocomplete",
+      "method": "/search.json",
+      "description": "Search for locations",
+      "required_parameters": [
+        "q"
+      ],
+      "optional_parameters": []
+    },
+    {
+      "name": "History",
+      "method": "/history.json",
+      "description": "Get historical weather data",
+      "required_parameters": [
+        "q",
+        "dt"
+      ],
+      "optional_parameters": [
+        "end_dt",
+        "unixend_dt",
+        "aqi",
+        "pollen",
+        "lang"
+      ]
+    },
+    {
+      "name": "Alerts",
+      "method": "/alerts.json",
+      "description": "Get weather alerts",
+      "required_parameters": [
+        "q"
+      ],
+      "optional_parameters": []
+    },
+    {
+      "name": "Marine",
+      "method": "/marine.json",
+      "description": "Get marine weather data",
+      "required_parameters": [
+        "q"
+      ],
+      "optional_parameters": [
+        "tides"
+      ]
+    },
+    {
+      "name": "Future",
+      "method": "/future.json",
+      "description": "Get future weather data",
+      "required_parameters": [
+        "q",
+        "dt"
+      ],
+      "optional_parameters": [
+        "pollen"
+      ]
+    },
+    {
+      "name": "Time Zone",
+      "method": "/timezone.json",
+      "description": "Get time zone information",
+      "required_parameters": [
+        "q"
+      ],
+      "optional_parameters": []
+    },
+    {
+      "name": "Astronomy",
+      "method": "/astronomy.json",
+      "description": "Get astronomical data",
+      "required_parameters": [
+        "q"
+      ],
+      "optional_parameters": []
+    },
+    {
+      "name": "IP Lookup",
+      "method": "/ip.json",
+      "description": "Get IP address information",
+      "required_parameters": [
+        "q"
+      ],
+      "optional_parameters": []
+    },
+    {
+      "name": "Sports",
+      "method": "/sports.json",
+      "description": "Get sports events information",
+      "required_parameters": [
+        "q"
+      ],
+      "optional_parameters": []
+    }
+  ],
+  "parameters": {
+    "q": {
+      "required": true,
+      "description": "Location query parameter",
+      "examples": [
+        "Latitude and Longitude (e.g., 48.8567,2.3508)",
+        "City name (e.g., Paris)",
+        "US zip code (e.g., 10001)",
+        "UK postcode (e.g., SW1)",
+        "IP address (e.g., 100.0.0.1)",
+        "auto:ip (for IP lookup)"
+      ]
+    },
+    "days": {
+      "required_for": [
+        "forecast"
+      ],
+      "description": "Number of forecast days (1-14)",
+      "example": "days=7"
+    },
+    "dt": {
+      "required_for": [
+        "history",
+        "future"
+      ],
+      "description": "Date in yyyy-MM-dd format",
+      "example": "dt=2023-01-01"
+    },
+    "aqi": {
+      "optional": true,
+      "description": "Enable air quality data",
+      "values": [
+        "yes",
+        "no"
+      ]
+    },
+    "pollen": {
+      "optional": true,
+      "description": "Enable pollen data",
+      "values": [
+        "yes",
+        "no"
+      ]
+    },
+    "alerts": {
+      "optional": true,
+      "description": "Enable weather alerts",
+      "values": [
+        "yes",
+        "no"
+      ]
+    },
+    "lang": {
+      "optional": true,
+      "description": "Language code for condition text",
+      "examples": [
+        "fr",
+        "de",
+        "zh",
+        "es"
+      ]
+    }
+  },
+  "response_structures": {
+    "common_location_object": {
+      "lat": "decimal",
+      "lon": "decimal",
+      "name": "string",
+      "region": "string",
+      "country": "string",
+      "tz_id": "string",
+      "localtime_epoch": "int",
+      "localtime": "string"
+    },
+    "current_weather": {
+      "last_updated_epoch": "int",
+      "last_updated": "string",
+      "temp_c": "decimal",
+      "temp_f": "decimal",
+      "condition": {
+        "text": "string",
+        "icon": "string",
+        "code": "int"
+      },
+      "wind_mph": "decimal",
+      "wind_kph": "decimal",
+      "humidity": "int",
+      "cloud": "int",
+      "uv": "decimal"
+    },
+    "forecast": {
+      "forecastday": [
+        {
+          "date": "string",
+          "day": {
+            "maxtemp_c": "decimal",
+            "mintemp_c": "decimal",
+            "avgtemp_c": "decimal",
+            "condition": {
+              "text": "string",
+              "code": "int"
+            }
+          },
+          "hour": [
+            {
+              "time_epoch": "int",
+              "temp_c": "decimal",
+              "condition": {
+                "text": "string",
+                "code": "int"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "error_codes": {
+    "1002": "API key not provided",
+    "1003": "Parameter 'q' not provided",
+    "1006": "No location found matching parameter 'q'",
+    "2006": "API key provided is invalid",
+    "2007": "API key has exceeded calls per month quota",
+    "2008": "API key has been disabled"
+  },
+  "data_availability": [
+    "Real-time weather",
+    "14-day weather forecast",
+    "Historical weather (from 2010)",
+    "Marine weather and tide data",
+    "Future weather (up to 365 days)",
+    "Astronomy data",
+    "Time zone information",
+    "Weather alerts",
+    "Air quality data",
+    "Pollen data",
+    "Sports events"
+  ],
+  "plan_limitations": {
+    "free": [
+      "Current weather only",
+      "Limited calls"
+    ],
+    "pro": [
+      "Forecast up to 14 days",
+      "History API",
+      "Marine data"
+    ],
+    "enterprise": [
+      "All features",
+      "15-min intervals",
+      "Solar data"
+    ]
+  }
+}
