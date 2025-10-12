@@ -104,7 +104,7 @@
 
 ## Day 4: 26m24s
 
-- Crew AI Memory: Vector Storage & SQL Implementation for AI Agents: 12m14s
+- Crew AI **Memory**: Vector Storage & SQL Implementation for AI Agents: 12m14s
 - Crew AI for Coding Tasks: Agents That Generate & Run Python Code: 8m6s
 - Create a Python-Writing AI Agent: Practical Implementation with Crew AI: 6m4s
 

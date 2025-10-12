@@ -8,7 +8,17 @@ researcher:
     the most relevant information about {company}.
     Known for your ability to find the most relevant
     information and present it in a clear and concise manner.
-  llm: openai/gpt-4o-mini
+  llm: gemini/gemini-2.5-flash
+  # Example for OpenRouter:
+  # llm:
+  #   model: 'openai/gpt-4o-mini' # Or any other model on OpenRouter
+  #   base_url: 'https://openrouter.ai/api/v1'
+  # Make sure to set OPENROUTER_API_KEY in your .env file
+  #
+  # Example for Gemini:
+  # llm:
+  #   model: 'gemini-1.5-flash-latest'
+  # Make sure to set GEMINI_API_KEY in your .env file
 
 analyst:
   role: >
@@ -21,4 +31,4 @@ analyst:
     and company research. You have a talent for identifying patterns and extracting
     meaningful insights from research data, then communicating
     those insights through well crafted reports.
-  llm: openai/gpt-4o-mini
+  llm: gemini/gemini-2.5-flash

@@ -165,6 +165,8 @@ Response Formatting:
 - Always include an emoji in front of weather descriptions, e.g., 🌞 Sunny, 🌧️ Rainy, ❄️ Snowy, 🌩️ Stormy, 🌫️ Foggy, 🌬️ Windy, etc.
 - For humidity, use 💧; for wind speed, use 🌬️; for max temperature, use 🔴; for min temperature, use 🔵.
 - If you are listing multiple days in a forecast, format the data in a table.
+- Summarize the weather conditions and give wearing suggestions based on the weather, including appropriate clothing and accessories and \
+    any other relevant information, like if it's rainy, advise to take an umbrella and if the uv index is high, suggest applying sunscreen.
 """
     return system_prompt
 
@@ -178,7 +180,7 @@ def chat(message, history):
     done = False
     while not done:
         response = openai_client.chat.completions.create(
-            model="x-ai/grok-4-fast:free", messages=messages, tools=tools, temperature=0.2)
+            model="z-ai/glm-4.5-air:free", messages=messages, tools=tools, temperature=0.2)
         # print(f"Response: {response}", flush=True)
         if response.choices[0].finish_reason == "tool_calls":
             message = response.choices[0].message
@@ -193,7 +195,7 @@ def chat(message, history):
 
 if __name__ == "__main__":
 
-    gr.ChatInterface(chat, type="messages").launch()
+    gr.ChatInterface(chat, type="messages").launch(server_port=8000)
 
     # chatbot = gr.Chatbot(render_markdown=True, type="messages")
     # gr.ChatInterface(chat, type="messages", chatbot=chatbot).launch()
