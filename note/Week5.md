@@ -91,3 +91,98 @@ For today's session, we will focus briefly on the first three concepts: models, 
 - Autogen is a comprehensive open-source framework for building scalable multi-agent systems.
 - It consists of Autogen Core, Autogen Agent Chat, Studio, and Magentic One, each serving different roles.
 - Autogen Core provides a generic runtime for managing messaging and coordination among distributed agents.
+
+### AutoGen Agent Chat Tutorial: Creating Tools and Database Integration
+
+#### Introduction to Autogen Agent Chat
+
+Welcome to week five, day one of the Autogen Agent Chat tutorial, which is the main part of Autogen. This framework is comparable to other agent SDKs like crew. Much of what we do here will look familiar because it is consistent with crew and the OpenAI agents SDK, particularly the initial step of loading the environment as usual.
+
+#### The Model Concept
+
+The first concept is the model, which is similar to concepts like language models (LM) we have encountered before. It acts as a wrapper around calling a large language model. Here, we import the `OpenAIChatCompletionClient`, which is the wrapper for the language model we will be using, GPT-4 mini.
+
+Creating the model client is straightforward: you simply pass in the name of your model. For example, you can create a client for GPT-4 mini or, alternatively, run a local model like LLaMA 3.2 using the same approach. This flexibility allows you to continue working locally instead of using GPT-4 mini.
+
+#### The Message Concept
+
+The second concept is the message, which is unique to Autogen Agent Chat. You create an object called a text message. For instance, a message might have the content "I'd like to go to London" with the source set as the user.
+
+When you run and print this message, it shows the content and the source, encapsulating the communication from the user to the agent. This simple structure forms the basis for message passing in the framework.
+
+#### The Agent Concept
+
+The third concept is the agent, which is similar to previous frameworks. We import the `AssistantAgent` class, which is the fundamental class used in Autogen Agent Chat.
+
+To create an agent, instantiate `AssistantAgent` with a name, such as "airline agent", provide the model client (the underlying language model), and supply a system message that acts like instructions. For example:
+
+> You are a helpful assistant for an airline. You give short, humorous answers.
+
+You can also specify streaming of results by setting the `model_client_stream` parameter. This creates an agent ready to process messages.
+
+#### Passing Messages to the Agent
+
+To interact with the agent, you call its `on_messages` method, passing a list of messages. For example, passing the message "I'd like to go to London" in a list.
+
+You also pass a `cancellation_token` which signals when the message processing is complete. This method is asynchronous, so you must `await` it.
+
+After processing, you can print the content of the chat message returned by the agent. For example, the agent might respond with a humorous answer about London weather.
+
+#### Example Agent Response
+
+When you pass the message "I'd like to go to London" to the agent configured as a helpful airline assistant, it might respond:
+
+> Great choice. Just remember, if it starts raining, it's not a sign to panic. It's just London welcoming you. Ha!
+
+This demonstrates the agent's ability to generate short, humorous answers as instructed.
+
+#### Integrating Tools: Ticket Price Lookup
+
+Next, we enhance the agent by integrating tools. We create a tool to get ticket prices, arming our agent with the ability to look up ticket prices from a SQLite database.
+
+We start by importing `sqlite3`, deleting any existing tickets database to start fresh, then creating a new database with a table called `cities` containing city names and round-trip prices.
+
+We populate the database with ticket prices for cities such as London, Paris, Rome, Madrid, Barcelona, and Berlin.
+
+#### Defining the Database Query Function
+
+We define a simple query function `get_city_price` that takes a city name as input, connects to the database, runs a `SELECT` statement to retrieve the round-trip price for that city, and returns the result.
+
+While this example is simplified and does not include extensive input validation or security measures, it serves as a toy example to demonstrate tool integration.
+
+#### Testing the Query Function
+
+Testing `get_city_price` with inputs like "London" and "Rome" returns prices such as 299 and 499 respectively, confirming that the database is populated and the query function works correctly.
+
+#### Creating a Smarter Agent with Tool Integration
+
+We create a new assistant agent named "smart agent" using the same model client and system message as before. We add the `get_city_price` function as a tool, enabling the agent to query ticket prices.
+
+We also set the attribute `reflect_on_tool_use` to `True`, which allows the agent to continue processing after receiving tool results, rather than returning immediately. This is typically the desired behavior.
+
+#### Lightweight Tool Integration in Autogen
+
+A notable advantage of Autogen is that you can pass Python functions directly as tools without requiring decorators or wrappers. This contrasts with other frameworks like OpenAI agents SDK or LangChain, which require additional syntax or wrappers.
+
+Autogen uses comments to extract tool descriptions, simplifying the integration process and reducing the learning curve.
+
+#### Using the Smart Agent
+
+We call the `on_messages` method of the smart agent, passing the same message "I'd like to go to London". We print the agent's inner messages, which show the function call to `get_city_price` with the city name "London", the result returned (299), and the final response from the model.
+
+The final response might be:
+
+> A round trip ticket to London will set you back 299. Just remember, the only thing you should pack is your sense of humor, because the weather might require it.
+
+This demonstrates the agent's ability to use tools and generate a humorous, informative answer.
+
+#### Summary
+
+This example highlights how simple it is to write a tool that performs a SQL call to a database and integrate it into an Autogen agent. The framework is quick and straightforward, and after less than ten minutes, you can become proficient at agent chat with tool integration.
+
+#### Key Takeaways
+
+- Autogen Agent Chat provides a lightweight abstraction for interacting with large language models, similar to OpenAI agents SDK.
+- The core concepts include the model client, message objects, and the assistant agent.
+- Tools can be integrated easily, such as a SQLite database query function, enabling agents to perform dynamic lookups.
+- Autogen simplifies tool integration by allowing direct use of Python functions without decorators, enhancing ease of use and reducing the learning curve.
