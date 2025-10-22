@@ -1,28 +1,22 @@
-Flight Deals from JFK to LHR - June 2025:
+### Flight Deals from SYD to TAO (December 2025)
 
-1. Airline: Virgin Atlantic
-   - Price: $497
-   - Non-stop
-   - In-flight amenities: meals, drinks, entertainment, WiFi
+1. **Flight from Sydney (SYD) to Qingdao (TAO)**  
+   - **Airline**: China Eastern Airlines  
+   - **Price**: $431  
+   - **Type**: One-way, Non-stop  
+   - **Details**: Departing from Kingsford Smith International Airport to Qingdao Jiaodong International Airport.
 
-2. Airline: JetBlue
-   - Price: $314
-   - Non-stop
-   - Booking available now
+2. **Flight from Sydney (SYD) to Qingdao (TAO)**  
+   - **Airline**: XiamenAir  
+   - **Price**: $280  
+   - **Type**: One-way (not direct, 1 stop)  
+   - **Details**: 32 hours travel time, layover included.
 
-3. Airline: Delta
-   - Price: $239
-   - Non-stop
-   - Additional services: earns airline miles
+3. **Flight from Sydney (SYD) to Qingdao (TAO)**  
+   - **Airline**: XiamenAir  
+   - **Price**: $252  
+   - **Type**: One-way (direct)  
+   - **Details**: Cheapest one-way flight currently available.  
 
-4. Airline: SWISS
-   - Price: $402
-   - Non-stop
-   - Comfortable seating and great service
-
-5. Airline: United Airlines
-   - Price: $450
-   - Non-stop
-   - Great onboard experience
-
-Best Deal: JetBlue at $314 for a non-stop flight from JFK to LHR. 
+### Summary
+The best deal found for a one-way non-stop flight is with China Eastern Airlines for $431. It is a direct flight with no intermediate stops.
