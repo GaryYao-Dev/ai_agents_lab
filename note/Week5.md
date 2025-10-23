@@ -816,8 +816,90 @@ AutoGen Core is the foundational infrastructure layer that powers AutoGen Agent 
    - Methods decorated with `@message_handler` can receive and process messages
 
 3. **Message Structure:**
+
    - Custom message objects defined as dataclasses
    - Simple data containers for agent communication
+
+**How `@message_handler` Works - Message Dispatching Mechanism:**
+
+AutoGen Core uses a sophisticated type-based message routing system. Here's how the entire process works:
+
+1. **Handler Registration Phase:**
+
+   - When an agent class is defined, AutoGen Core scans all methods decorated with `@message_handler`
+   - For each handler, the framework inspects the **type annotation** of the message parameter (first parameter after `self`)
+   - The framework builds an internal routing table: `{MessageClass: handler_method}`
+
+2. **Message Routing Process:**
+
+   ```
+   Runtime receives message → Looks up Agent by AgentId → Examines message type (class)
+   → Finds matching handler by checking message parameter type → Calls that handler method
+   ```
+
+3. **Type-Based Dispatch Example:**
+
+   ```python
+   @dataclass
+   class Message:
+       content: str
+
+   @dataclass
+   class ImageMessage:
+       image_data: bytes
+       caption: str
+
+   class MultiModalAgent(RoutedAgent):
+       @message_handler
+       async def handle_text(self, message: Message, ctx: MessageContext) -> Message:
+           # This handler is called ONLY when Message type is sent
+           return Message(content=f"Text received: {message.content}")
+
+       @message_handler
+       async def handle_image(self, message: ImageMessage, ctx: MessageContext) -> Message:
+           # This handler is called ONLY when ImageMessage type is sent
+           return Message(content=f"Image received: {message.caption}")
+   ```
+
+4. **Complete Call Flow:**
+
+   ```
+   Step 1: await runtime.send_message(Message("hello"), AgentId("agent", "default"))
+   Step 2: Runtime looks up agent registry → Finds agent instance by type="agent", key="default"
+   Step 3: Runtime inspects message class → type(message) == Message
+   Step 4: Runtime checks agent's handler registry → Finds handle_text() accepts Message type
+   Step 5: Runtime invokes → await agent.handle_text(message, context)
+   Step 6: Handler executes and returns result → Runtime delivers response to caller
+   ```
+
+5. **Key Advantages of This Design:**
+
+   - **Multiple Handlers per Agent**: One agent can handle different message types with different methods
+   - **Type Safety**: Python type hints ensure correct handler selection at runtime
+   - **Clean Separation**: No manual if/elif chains needed to route message types
+   - **Extensibility**: Add new message types and handlers without modifying existing code
+
+6. **Example with Multiple Message Types:**
+
+   ```python
+   class SmartAgent(RoutedAgent):
+       @message_handler
+       async def on_text(self, msg: Message, ctx: MessageContext) -> Message:
+           return Message(content=f"Text: {msg.content}")
+
+       @message_handler
+       async def on_text_message(self, msg: TextMessage, ctx: MessageContext) -> Message:
+           # TextMessage is from autogen_agentchat, different from our Message class
+           return Message(content=f"AgentChat Text: {msg.content}")
+
+   # Sending Message class triggers on_text()
+   response1 = await runtime.send_message(Message("hello"), agent_id)
+
+   # Sending TextMessage class triggers on_text_message()
+   response2 = await runtime.send_message(TextMessage(content="hi", source="user"), agent_id)
+   ```
+
+This type-based dispatching is the core innovation of AutoGen Core, enabling elegant multi-message-type handling without complex routing logic.
 
 **Code Example - Simple Agent:**
 
@@ -929,3 +1011,283 @@ class RockPaperScissorsAgent(RoutedAgent):
 - Complex workflows requiring agent-to-agent communication
 
 This foundation enables building sophisticated multi-agent applications where agents can discover, message, and collaborate with each other autonomously.
+
+## Day 4
+
+### Autogen Core Distributed Runtime: Architecture & Components Explained
+
+#### Introduction to Autogen Core Distributed Runtime
+
+Welcome to week five, day four. Today, we will discuss more about Autogen Core. You may recall that Autogen Core is the fundamental bottom layer of the Autogen stack. It serves as an interaction framework responsible for managing how agents interact with each other. While it works well with agent chat implementations, it does not concern itself with how the agents are implemented internally.
+
+Autogen Core is somewhat analogous to Landgraf; however, instead of focusing on repeatable workflows, it emphasizes interactions between diverse agents.
+
+#### Runtime Types: Standalone and Distributed
+
+Previously, we discussed two different types of runtimes: standalone and distributed. Last time, we focused on the standalone runtime. Today, we will explore the distributed runtime, which operates at an even higher level. This overview aims to provide a flavor of its architecture and capabilities.
+
+It is important to note that Microsoft considers the distributed runtime experimental. The APIs are subject to change at any time, and it is not yet ready for production systems. Instead, it represents an exciting architectural idea with promising future possibilities.
+
+#### Overview of the Distributed Runtime
+
+The distributed runtime is designed to handle processes and manage messaging across process boundaries. Unlike a single-threaded runtime running on one machine, the distributed runtime can operate across different processes, which may not necessarily be Python processes; they could be implemented in any language or environment.
+
+The distributed runtime consists of two main components:
+
+- **Host Service:** This component acts as a container that runs the distributed runtime. It connects to one or more worker runtimes and manages the delivery and session handling of direct messages.
+- **Worker Runtime:** This component manages agents similarly to the single-threaded runtime. It registers agents, advertises them to the host service, and executes their code.
+
+#### Host Service and Messaging
+
+The host service handles direct messages using gRPC (Google Remote Procedure Call) technology. It manages the sessions and the complex infrastructure required to send messages remotely from one computer or process to another. This includes all the nuts and bolts of remote communication, abstracting these complexities away from the agents and worker runtimes.
+
+#### Worker Runtime and Agent Management
+
+The worker runtime functions similarly to the runtime in the single-threaded case. It manages multiple agents that are registered with it. The worker runtime advertises the agents it manages to the host service, allowing the host to be aware of available agents. It is responsible for executing the code associated with these agents, which act as delegates performing specific tasks.
+
+#### Summary
+
+This architecture enables scalable and flexible distributed agent interactions across process boundaries. The host service and worker runtimes collaborate to manage communication and execution, respectively. We will explore this architecture more concretely with examples shortly.
+
+#### Key Takeaways
+
+- Autogen Core is the foundational interaction framework managing agent interactions.
+- The distributed runtime enables processes to communicate across boundaries using gRPC.
+- The architecture consists of a host service managing sessions and worker runtimes managing agents.
+- The distributed runtime is experimental and designed for future scalable multi-process systems.
+
+### Implementing Distributed AI Agents with Autogen Core and gRPC Runtime
+
+#### Introduction to Autogen Core Distributed
+
+In this session, we return to the Autogen project, specifically focusing on the distributed capabilities of Autogen Core. This is an introductory overview intended to provide a flavor of the technology. If there is interest, more detailed content can be provided upon request. It is important to note that this technology is still experimental, as indicated by Microsoft.
+
+#### Two Modes of Operation: All-in-One Worker and Multiple Workers
+
+We will explore two different ways to run the distributed system: one is the "all-in-one worker" mode, and the other involves multiple workers. A flag can be set to switch between these modes, and we will demonstrate both.
+
+#### Setting Up the Environment and Message Class
+
+We begin by importing necessary modules and loading environment variables. The message class is defined as before, serving as an analogy to the state in LangGraph. This class describes how agents interact with each other.
+
+#### Distributed Runtime Components: Host and Worker
+
+The distributed runtime consists of two main components: the host and the worker. The host is created using the gRPC worker agent runtime host, which utilizes gRPC—a remote procedure call technique—to send messages. The host runs locally on port 551 and is started accordingly.
+
+gRPC is a cross-language approach that enables direct function calls between different programming languages. It is widely used for interactive messaging that crosses process boundaries, functioning similarly to REST HTTP calls but with direct function invocation.
+
+#### Starting the Host and Introducing the Autogen Serp Tool
+
+Once the host is running, we reintroduce the Autogen Serp tool using the Serp API. This is done through LangChain, where we create a Google Serp API wrapper and then wrap it in a LangChain tool to become an Autogen tool for internet search.
+
+#### Project Scenario: Business Decision Making with Distributed Agents
+
+Instead of a frivolous example like rock-paper-scissors, we focus on a business decision scenario: determining whether to use Autogen in a new AI agent project. Two agents are tasked with researching the pros and cons of Autogen by performing web searches. A judge agent then evaluates their findings and makes a decision based purely on this research, providing a brief rationale.
+
+#### Agent Setup and Roles
+
+We define two agents, referred to as player one and player two, both using GPT-4 or GPT-4 Mini models to maintain fairness in quality. Player one researches the pros, and player two researches the cons. Although the code currently uses two separate classes, this could be simplified to one with different prompts. The judge agent also uses an underlying language model and collects messages from both agents to make the final decision.
+
+#### Message Handling and Distributed Communication
+
+The message handler method collects messages from player one and player two agents, sending messages via the `send_message` function. Previously, this was a direct Python function call, but now it is orchestrated remotely using gRPC through the distributed runtime. This abstraction means the code does not need to be aware that the agents are running as separate processes or even in different programming languages. The Autogen Core distributed runtime handles all message routing and function invocation transparently.
+
+#### Running the All-in-One Worker Mode
+
+We demonstrate the all-in-one worker mode by creating a new worker agent runtime connected to the host. Three agents—player one, player two, and the judge—are registered with this worker. The judge's agent ID is collected, and a "go" message is sent to initiate the process. The agents perform their research and the judge compiles the results to make a recommendation.
+
+#### Results of the Distributed Agent Interaction
+
+The agents return their findings:
+
+- **Pros of Autogen:** Strengths include memory, coherent context, ease of development, scalability, and versatile applications.
+- **Cons of Autogen:** Limitations include limited AI capabilities, less customization, less structure, potential bugs, and performance issues with lower-end models.
+
+Based on this research, the judge agent recommends using Autogen for the project.
+
+#### Conclusion: Stopping the Workers and Host
+
+After the decision is made, the workers and host are stopped, completing the demonstration of distributed Autogen Core in action.
+
+#### Key Takeaways
+
+- Demonstrated the setup and execution of distributed AI agents using Autogen Core with gRPC runtime.
+- Showcased two modes: all-in-one worker and multiple workers for agent orchestration.
+- Illustrated how agents perform web research on pros and cons of Autogen and a judge agent makes a decision.
+- Highlighted the seamless abstraction of distributed communication via gRPC, enabling cross-language, cross-process function calls.
+
+### Building Distributed Agent Systems: AutoGen Cross
+
+#### Distributed Agent Systems with AutoGen
+
+In this session, we explore what happens when we restart the system and configure it to run all agents with the `all_on_one_worker` flag set to false. This means that instead of running all agents on a single worker, we distribute them across multiple workers.
+
+We start by hosting the system on localhost at port 551, using the same tools, instructions, and agent code as before. The agent code itself remains unchanged, but the management of the agents is different under this configuration.
+
+Upon running, this setup creates three distinct runtimes, which we refer to as worker one, worker two, and simply worker for the third. Each of these is a gRPC worker runtime that we start independently.
+
+Player one registers with worker one, player two with worker two, and the judge registers with the worker named simply "worker." This means each agent runs in its own separate runtime environment.
+
+The key difference here is that instead of having all three agents running in a single remote worker on the host, we now have three separate workers, each running one agent. Although all workers are on the same host, they operate as completely separate runtimes.
+
+This configuration allows for interaction between runtimes. Messages are sent across these boundaries, enabling agents to communicate transparently despite being in different processes.
+
+For example, one agent calls GPT-4 to generate pros, another agent generates cons, and then both results are sent back to the judge agent. The judge then compiles these inputs to form a recommendation.
+
+The judge's output includes pros such as community and support, scalability (now listed first), and cons like limited customization, performance variability, cost considerations, and ethical and content control concerns.
+
+Despite the distributed setup, the final recommendation remains to proceed, demonstrating that the distributed architecture maintains consistent viewpoints.
+
+This example illustrates the power of AutoGen: without changing your agent code or class definitions, you can run agents in different configurations and runtimes. AutoGen handles message passing across process boundaries transparently, making inter-agent communication appear as simple as method calls within Python classes.
+
+Looking ahead, this approach opens the possibility for millions or even billions of agents interacting globally. Microsoft is investing in this vision, creating a platform where agents can live and interact seamlessly regardless of their location or programming language.
+
+To participate, you simply wrap your agent code within the AutoGen agent wrapper, define your message classes as shown, and your agents can then interact with each other anywhere in the world.
+
+This concludes day four of the series. Tomorrow, day five will focus on a project designed to provoke thought and provide new insights, continuing the theme of stretching the boundaries of what is possible with AutoGen.
+
+#### Key Takeaways
+
+- Demonstrated running multiple agents distributed across separate worker runtimes on the same host.
+- Showed that agent code remains unchanged while the runtime configuration varies, enabling flexible deployment.
+- Highlighted AutoGen's transparent handling of cross-process communication as if agents were local Python classes.
+- Emphasized the potential for large-scale agent interactions across different languages and locations using this framework.
+
+---
+
+### Week 5 Day 4 Summary
+
+**Topic:** Autogen Core Distributed Runtime (experimental) — multi-process, gRPC-based agent orchestration.
+
+**Architecture recap:**
+
+- Host service (`GrpcWorkerAgentRuntimeHost`) handles sessions and direct message routing over gRPC.
+- Worker runtimes (`GrpcWorkerAgentRuntime`) register/execute agents and advertise them to the host.
+- Agents communicate by message types; distributed messaging is transparent to agent code.
+
+**Deployment patterns:**
+
+- All-in-one worker: all agents on a single worker process.
+- Multi-worker: agents spread across separate workers; code unchanged, only runtime wiring differs.
+
+**Workflow:**
+
+1. Define a lightweight `Message` dataclass used for inter-agent comms.
+2. Start the gRPC host.
+3. Implement agents (two "research" players + a Judge). Players can use tools (e.g., LangChain Serper via `LangChainToolAdapter`).
+4. Start worker(s), register agents, send a kickoff message to the Judge.
+5. Stop workers and host.
+
+#### Minimal setup code (from lab 4)
+
+```python
+from dataclasses import dataclass
+from autogen_core import AgentId, MessageContext, RoutedAgent, message_handler
+from autogen_agentchat.agents import AssistantAgent
+from autogen_agentchat.messages import TextMessage
+from autogen_ext.models.openai import OpenAIChatCompletionClient
+from autogen_ext.tools.langchain import LangChainToolAdapter
+from langchain_community.utilities import GoogleSerperAPIWrapper
+from langchain.agents import Tool
+from autogen_ext.runtimes.grpc import GrpcWorkerAgentRuntimeHost, GrpcWorkerAgentRuntime
+
+ALL_IN_ONE_WORKER = False  # Toggle single worker vs multi-worker
+
+@dataclass
+class Message:
+    content: str
+
+# Start host
+host = GrpcWorkerAgentRuntimeHost(address="localhost:50051")
+host.start()
+
+# Optional tool (internet search via LangChain -> Autogen tool)
+serper = GoogleSerperAPIWrapper()
+langchain_serper = Tool(
+    name="internet_search",
+    func=serper.run,
+    description="Useful for when you need to search the internet",
+)
+autogen_serper = LangChainToolAdapter(langchain_serper)
+
+# Two players research pros/cons; Judge decides
+class Player1Agent(RoutedAgent):
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+        model_client = OpenAIChatCompletionClient(model="gpt-4o-mini")
+        self._delegate = AssistantAgent(name, model_client=model_client,
+                                        tools=[autogen_serper], reflect_on_tool_use=True)
+
+    @message_handler
+    async def handle_my_message_type(self, message: Message, ctx: MessageContext) -> Message:
+        text = TextMessage(content=message.content, source="user")
+        resp = await self._delegate.on_messages([text], ctx.cancellation_token)
+        return Message(content=resp.chat_message.content)
+
+class Player2Agent(Player1Agent):
+    pass  # Same behavior; different prompt at call-site
+
+class Judge(RoutedAgent):
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+        model_client = OpenAIChatCompletionClient(model="gpt-4o-mini")
+        self._delegate = AssistantAgent(name, model_client=model_client)
+
+    @message_handler
+    async def handle_my_message_type(self, message: Message, ctx: MessageContext) -> Message:
+        instruction1 = (
+            "Research brief reasons in favor of using AutoGen for an AI Agent project (pros)."
+        )
+        instruction2 = (
+            "Research brief reasons against using AutoGen for an AI Agent project (cons)."
+        )
+        research1 = await self.send_message(Message(instruction1), AgentId("player1", "default"))
+        research2 = await self.send_message(Message(instruction2), AgentId("player2", "default"))
+        brief = f"## Pros\n{research1.content}\n\n## Cons\n{research2.content}\n\n"
+        ask = TextMessage(
+            content=(
+                "Based purely on the above research, decide whether to use AutoGen and give a brief rationale."
+                f"\n\n{brief}"
+            ),
+            source="user",
+        )
+        resp = await self._delegate.on_messages([ask], ctx.cancellation_token)
+        return Message(content=brief + "## Decision\n\n" + resp.chat_message.content)
+
+# Start worker(s) and register
+if ALL_IN_ONE_WORKER:
+    worker = GrpcWorkerAgentRuntime(host_address="localhost:50051")
+    await worker.start()
+    await Player1Agent.register(worker, "player1", lambda: Player1Agent("player1"))
+    await Player2Agent.register(worker, "player2", lambda: Player2Agent("player2"))
+    await Judge.register(worker, "judge", lambda: Judge("judge"))
+    judge_id = AgentId("judge", "default")
+else:
+    worker1 = GrpcWorkerAgentRuntime(host_address="localhost:50051")
+    await worker1.start()
+    await Player1Agent.register(worker1, "player1", lambda: Player1Agent("player1"))
+
+    worker2 = GrpcWorkerAgentRuntime(host_address="localhost:50051")
+    await worker2.start()
+    await Player2Agent.register(worker2, "player2", lambda: Player2Agent("player2"))
+
+    worker = GrpcWorkerAgentRuntime(host_address="localhost:50051")
+    await worker.start()
+    await Judge.register(worker, "judge", lambda: Judge("judge"))
+    judge_id = AgentId("judge", "default")
+
+# Kick off and then shut down
+response = await worker.send_message(Message("Go!"), judge_id)
+print(response.content)
+
+await worker.stop()
+if not ALL_IN_ONE_WORKER:
+    await worker1.stop(); await worker2.stop()
+await host.stop()
+```
+
+**What this shows:**
+
+- A concrete distributed configuration using gRPC host/workers.
+- Tool-calling agents collaborating across process boundaries with unchanged agent logic.
+- Simple flag to switch between single-worker and multi-worker layouts.
