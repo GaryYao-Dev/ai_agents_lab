@@ -1291,3 +1291,267 @@ await host.stop()
 - A concrete distributed configuration using gRPC host/workers.
 - Tool-calling agents collaborating across process boundaries with unchanged agent logic.
 - Simple flag to switch between single-worker and multi-worker layouts.
+
+## Day 5
+
+### Creating Autonomous Agents That Write & Deploy Other Agents in AutoGen
+
+#### Introduction to the Agent Creator Project
+
+Welcome to day five of week five, where we wrap up the AutoGen week with an exciting project: the agent creator. This project is designed to be quick yet fun, offering a unique educational experience. It explores the inner workings of the AutoGen framework in a novel way, unlike anything we've done before.
+
+This project is intellectually entertaining and quite avant-garde, focusing on concepts of autonomy and agency that are currently very much in vogue. While it has several advantages, it also comes with some drawbacks that you should be aware of.
+
+#### Advantages and Limitations
+
+The project is primarily educational, aiming to teach you about the flexible and dynamic capabilities of AutoGen. It is also entertaining and pushes the boundaries of what you can do with agent-based frameworks.
+
+However, it is not particularly commercial, although there is a subtle commercial aspect that will become apparent. Additionally, the project can be unreliable and unsafe because it involves creating and executing Python code dynamically without guardrails.
+
+#### Safety Considerations
+
+Since the agent creator will generate and run Python code natively on your machine, it is crucial to proceed with caution. Running this code is at your own risk, and you should take any precautions you deem necessary. For example, you might consider using a Docker container, although setting this up could be cumbersome due to the need to install AutoGen within it.
+
+If you are not comfortable with these risks, you can simply watch the demonstration without executing the code yourself.
+
+#### Project Overview
+
+The core idea is to create a creator agent that can write a Python module representing another agent. This new agent module will be based on an existing AutoGen chat agent template but will be modified to create a distinct agent that does not yet exist.
+
+The creator agent will then register this newly created agent with the distributed runtime of AutoGen Core, effectively instantiating and running the agent it has generated.
+
+Moreover, these agents will be capable of messaging each other and interacting dynamically. The overall objective for this team of created agents is to brainstorm business ideas and commercial applications for agent intelligence, aiming to generate revenue.
+
+Of course, you can customize the agents' objectives to suit different goals beyond commercial ones.
+
+#### Technical Approach
+
+To efficiently manage the creation and interaction of multiple agents, the project will leverage asynchronous Python programming using Asyncio. This approach prevents the process from being serial and slow, allowing agents to be created and communicate concurrently, thereby improving performance and responsiveness.
+
+With this introduction, we are ready to dive into the code and explore the implementation details of this innovative agent creator project.
+
+#### Key Takeaways
+
+- Introduced an educational project to create autonomous agents that write and deploy other agents using AutoGen.
+- Highlighted the project's experimental and edgy nature, focusing on autonomy and agency.
+- Emphasized safety concerns when executing dynamically generated Python code without guardrails.
+- Demonstrated the use of asynchronous Python to efficiently manage multiple agents interacting concurrently.
+
+### Implementing Agent
+
+#### Introduction to Agent Pi
+
+We are now in the fifth directory within Cursa, where I will demonstrate several concepts. To begin, I will introduce Agent Pi. Agent Pi acts as our template file. We provide this file to another agent and ask it to use this as its model or example, essentially as a template to create other agents like it. Simply put, it is a prototype that will be cloned to make various versions, or the agent itself will clone it.
+
+Agent Pi starts with some imports and defines a system message. The system message states:
+
+"You are a creative entrepreneur. Your task is to come up with a new business idea using genetic AI or refine an existing idea. Your personal interests are in certain sectors, and you are drawn to ideas that involve disruption. You are less interested in ideas that are purely automation. You are optimistic, adventurous, and have a risk appetite. You are imaginative, sometimes too much so. Your weaknesses include impatience and impulsiveness. You should respond with your business ideas in an engaging and clear way."
+
+At the top, there is a comment indicating that the system message can be changed to reflect the unique characteristics of this agent.
+
+There is a constant named `chances_that_i_bounce_idea_off_another` set to 0.5. The code comments mention that you can change the code to alter the behavior but should keep the method signatures the same.
+
+The agent has an `__init__` method which sets up a GPT-4 Mini model with a temperature of 0.7 to introduce some randomness. It creates a delegate assistant using this model client and the system message.
+
+#### Handling Messages
+
+The agent defines a message handler method, which I suggest renaming to `handle_message` for clarity and token efficiency. This method takes a message object and returns a message object. It prints a log indicating the type of message received, where the type corresponds to the agent's name.
+
+The message handler sends the received message to the underlying language model. The system prompt is included as part of the message. The response from the delegate is interpreted as a business idea, as the agent is tasked with generating business ideas.
+
+The agent generates a random number between 0 and 1. If this number is less than 0.5 (reflecting the 50% chance), it uses a utility function `find_recipient` to select another agent. It then sends its business idea to that recipient, asking them to refine and improve it. The refined idea is sent back as a message to the original agent.
+
+The agent either returns its own original idea or, with some probability, returns the refined version of its idea after collaboration with another agent. This demonstrates a simple mechanism for agent-to-agent collaboration and idea refinement.
+
+#### Messages Package
+
+The messages package contains a data class representing messages and includes the `find_recipient` function. This function identifies other agents available to message by scanning the directory for existing agent files named `agent1`, `agent2`, `agent3`, and so forth. It randomly selects one of these agents as the recipient. Currently, there is a possibility the agent might select itself as the recipient, which is acknowledged as a minor issue to be fixed.
+
+#### Creator Agent
+
+The Creator agent is responsible for creating and spawning new agents. Its system message instructs it to receive Python code and create a new Autogen core and Autogen agent chat instance. It uses the Agent Pi template to create new agents with unique system messages. The Creator can keep the overall goal the same or change it, even taking the agent in a completely different direction. The only requirements are that the class must be named `Agent`, inherit from `RootedAgent`, and have an `__init__` method. The Creator responds only with Python code.
+
+The Creator opens the Agent Pi file, calls the delegate to generate a new Python file for the new agent (e.g., `agent1.py`, `agent2.py`), and saves it with the appropriate agent number. Then, it dynamically imports the newly created Python module using Python's `importlib` feature. For example, if it creates `agent5.py`, it imports `agent5` on the fly.
+
+After importing the module, the Creator registers the new agent with the runtime, associating the agent's name with a factory method (a lambda) that creates new instances of that agent on demand. It then prints that the agent is live, meaning the agent is running and ready to receive messages.
+
+The Creator sends a message to the new agent asking for a business idea. The agent processes the message, works on an idea, and, depending on probability, may send the idea to another agent for refinement. This demonstrates how agents interact and message each other, showcasing Autogen Core's power as a pure agent messaging platform.
+
+This system allows for inter-process communication between agents without requiring the user to manage the underlying details of message passing or agent lifecycle. It is an imaginative and somewhat experimental approach to agent collaboration and dynamic code generation.
+
+#### Key Takeaways
+
+- Agent Pi serves as a prototype template for creating new agents with unique behaviors.
+- Agents communicate by sending and receiving messages, sometimes refining ideas collaboratively.
+- The Creator agent dynamically generates new agent Python modules and imports them at runtime.
+- This system demonstrates powerful agent-to-agent messaging and dynamic code generation using Autogen Core.
+
+### Creating Autonomous AI Agents that Collaborate Using Async Python
+
+#### Introduction to World.py
+
+We are nearly there. I have just one more thing to show you, which is `world.py`. This is quite short and represents the overall orchestration. It is not an agent but a Python script that brings everything together. You send messages to the creator agent like `agent1`, `agent2`, `agent3`, and it will create them accordingly.
+
+#### Understanding World.py and Async Python
+
+`world.py` is not an agent; it is a Python script that uses asynchronous Python in an interesting way. There is an async coroutine function called `create_and_message` which takes a worker, a creator ID, and an index `i` representing the agent number (1, 2, 3, etc.).
+
+The variable `how_many_agents` defines how many agents will be kicked off simultaneously. This is important because it controls concurrency.
+
+Note that this script interacts with real APIs, which incurs costs. For example, running this for 20 agents costs a few cents, which is reasonable. Running it for three agents costs almost nothing. However, there is a risk that the agent creator could change model requirements and potentially use more expensive models like GPT-4 instead of cheaper alternatives. While unlikely, it is something to be aware of.
+
+The async method `create_and_message` sends a message to the agent number specified, such as `agent1.py`, and writes the results to a corresponding markdown file like `idea1.markdown`. This function handles the communication and result storage for each agent.
+
+#### Main Async Function and Agent Runtime
+
+The main async function creates a gRPC worker agent runtime host, starts the host, creates a worker, and starts the worker. It then registers the creator agent from `creator.py` with the ID `creator_default`.
+
+Instead of creating agents sequentially, which would be slow and unexciting, the script gathers a list of coroutines for agent creation and messaging. It then awaits them all simultaneously using `asyncio.gather`, which runs them in parallel within the event loop.
+
+This approach is not multithreading but uses asynchronous event loops. When one coroutine is waiting on a network connection (such as OpenAI API calls), others can run, allowing efficient parallelism within rate limits.
+
+At the end of execution, the script stops the host and prints any exceptions that occurred. This is the standard way to run async Python from the command line or a Python module, by initiating an async IO event loop and running the main coroutine.
+
+#### Running the Script and Observing Agent Activity
+
+To run the script, open a command line, navigate to the fifth directory, and execute `python -m world.py`. This will call the creator 20 times to create 20 different agents.
+
+As the script runs, Python modules for each agent will appear, followed by markdown files containing ideas generated by the agents after their conversations. The process may take some time.
+
+During execution, you will see messages indicating agents going live, such as "Agent 16 is live," "Agent 17 is live," and so on. Agents will communicate with each other, and ideas will be generated and saved.
+
+#### Exploring Agent Ideas
+
+For example, agent 16 is a tech-savvy innovator in entertainment, gaming, film, and virtual reality, with specific parameters like a 0.3 chance to speak to others and a temperature of 0.8.
+
+Another agent focuses on futuristic technology solutions with different parameters.
+
+Agent 16 has already finished generating 20 ideas quickly. Many agents have had conversations and refined their ideas collaboratively.
+
+One refined idea is "Fin Buddy," an AI-powered financial companion aimed at empowerment and inclusivity. It is an educational platform for underserved communities in financial services, featuring localized support hubs, micro-investment pools, and gamification with real rewards partnered with local businesses.
+
+#### Significance and Future Directions
+
+This platform demonstrates autonomous agent creation and collaboration, where agents are even created by other agents. It showcases the potential of agentic AI and asynchronous Python orchestration.
+
+The code offers interesting ideas about using tools like Autogen for messaging between agents.
+
+A future challenge is to enhance robustness and safety, possibly by dockerizing the system. An exciting prospect is enabling the creator agent to write new versions of itself, effectively creating creators of creators, leading to meta-agent systems.
+
+This concept is fascinating and represents a frontier in agentic AI research.
+
+#### Conclusion and Next Steps
+
+Thank you for following this project. It offers educational and entertainment value by exploring the possibilities of agentic AI.
+
+The upcoming week will focus on the exciting conclusion with MCP and a return to the OpenAI Agents SDK, which remains a favorite platform.
+
+Stay tuned for more advanced topics and implementations.
+
+#### Key Takeaways
+
+- Demonstrated the orchestration of multiple autonomous AI agents using asynchronous Python.
+- Explained the use of async coroutines and `asyncio.gather` to run agent creation and messaging in parallel.
+- Highlighted the potential risks and costs associated with API usage in agent creation.
+- Discussed the future possibilities of self-replicating agent creators and meta-agent systems.
+
+---
+
+### Week 5 Day 5 Summary — Agents that write and deploy agents
+
+Day 5 shows a complete loop where an LLM-powered “Creator” writes new agent code, loads it at runtime, and sends those agents to collaborate on ideas. You’ll learn the concepts without reading all details: dynamic code generation, safe-ish runtime registration, message-based collaboration, and async orchestration at scale.
+
+#### What you learn today
+
+- How to bootstrap new agents from a template using an LLM (dynamic code gen)
+- How Autogen Core registers and addresses agents at runtime (name + key)
+- How agents collaborate via messages and simple probabilistic handoffs
+- How to fan out N agent creations concurrently with `asyncio.gather`
+- Why safety matters when executing generated code, and basic guardrails
+
+#### How it works (mental model)
+
+1. `world.py` spins up a gRPC host + worker and registers `Creator`.
+2. It concurrently asks `Creator` to produce `agent1.py … agentN.py`.
+3. `Creator` uses the `agent.py` template to generate Python, writes the file, imports the module, registers the agent, and asks it for an idea.
+4. Each new agent may “bounce” its idea to a peer for refinement, then returns the final idea, which is saved as `idea{i}.md`.
+
+#### Minimal patterns you need
+
+1. Code-gen and registration (from `creator.py`):
+
+```python
+# 1) Ask LLM to transform template into a new Agent module
+prompt = build_prompt_with_template(open("agent.py").read())
+code = llm_generate(prompt)  # via AssistantAgent
+
+# 2) Persist and import on the fly
+filename = f"agent{i}.py"
+open(filename, "w", encoding="utf-8").write(code)
+module = importlib.import_module(f"agent{i}")
+
+# 3) Register and message the new agent
+await module.Agent.register(runtime, f"agent{i}", lambda: module.Agent(f"agent{i}"))
+reply = await runtime.send_message(Message("Give me an idea"), AgentId(f"agent{i}", "default"))
+```
+
+2. Agent behavior and peer refinement (from `agent.py`):
+
+```python
+@message_handler
+async def handle_message(self, message: Message, ctx: MessageContext) -> Message:
+    # Ideate via delegated LLM
+    idea = await self._ask_llm(message.content, ctx)
+
+    # With 50% chance, ask a peer to refine
+    if random.random() < 0.5:
+        peer = messages.find_recipient()  # picks another agent*.py
+        refined = await self.send_message(Message(
+            f"Please refine and improve: {idea}"), peer)
+        idea = refined.content
+    return Message(content=idea)
+```
+
+3. Orchestrate many agents concurrently (from `world.py`):
+
+```python
+host = GrpcWorkerAgentRuntimeHost(address="localhost:50051"); host.start()
+worker = GrpcWorkerAgentRuntime(host_address="localhost:50051"); await worker.start()
+await Creator.register(worker, "Creator", lambda: Creator("Creator"))
+
+creator_id = AgentId("Creator", "default")
+tasks = [worker.send_message(Message(content=f"agent{i}.py"), creator_id)
+         for i in range(1, N+1)]
+results = await asyncio.gather(*tasks)
+for i, r in enumerate(results, 1): open(f"idea{i}.md", "w").write(r.content)
+```
+
+#### Safety notes (what to harden before reuse)
+
+- Executing generated Python is risky. Add allowlists and strict validation:
+
+```python
+import re
+agent_name = filename.split(".")[0]
+if not re.fullmatch(r"agent\d+", agent_name):
+    raise ValueError("Invalid agent name")
+```
+
+- Prevent self-selection in peer refinement:
+
+```python
+def find_recipient(self_id: AgentId) -> AgentId:
+    peers = [n for n in agent_names if n != self_id.type]
+    return AgentId(random.choice(peers), "default")
+```
+
+- Consider sandboxing (containers, firejail) and read-only working dirs for created modules. Monitor API usage and set rate limits.
+
+#### Outcomes you should see
+
+- New files: `agent1.py … agentN.py` and corresponding `idea1.md … ideaN.md`
+- Ideas that sometimes cite “refined by” a peer agent, demonstrating collaboration
+
+#### Why this matters
+
+- It’s a compact demo of Autogen Core’s strengths: dynamic agent lifecycles, message-first composition, and distributed runtime plumbing separated from agent logic. You leave with a mental model and a few snippets sufficient to recreate the project or adapt it to your domain.
