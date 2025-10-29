@@ -1,27 +1,39 @@
-# Banoffee Pie Recipe
+# 锅包肉 (Guo Bao Rou) Recipe
 
 ## Ingredients
-- 4 bananas, sliced
-- 394g caramel or dulce de leche
-- 300ml double cream
-- Dark chocolate (optional)
+- Pork loin (里脊肉), sliced thinly
+- Potato starch (土豆淀粉)
+- White sugar (白糖)
+- Vinegar (醋)
+- Scallions (葱)
+- Ginger (姜)
+- Carrot (胡萝卜)
+- Cooking wine (料酒)
+- Soy sauce (酱油)
+- Black pepper powder (黑胡椒粉)
+- Chicken essence (鸡精) or MSG
+- Salt (盐)
+- Egg white (鸡蛋清)
+- Cooking oil (食用油)
 
-### For the pastry
-- 100g butter, chilled (plus extra for greasing)
-- 200g plain flour
-- 1 medium egg, separated
-- 1 tbsp golden caster sugar
+## Instructions
 
-## Method
-1. Make the pastry case: Put butter and flour in a food processor and pulse until it resembles fresh breadcrumbs. Add egg yolk and sugar, pulse again, then add very cold water a tbsp at a time until dough comes together.
-2. Knead dough gently by hand until smooth ball forms. Wrap in cling film and chill for 30 minutes.
-3. Heat oven to 190C/170C fan/gas 4. Grease a 23cm loose bottomed fluted tart tin. Roll out pastry and line the tin, leaving about 0.5cm of pastry over the edge and snip to length.
-4. Line base with baking parchment and weigh down with baking beans/uncooked rice. Bake for 15 minutes. Remove parchment and beans, brush pastry with beaten egg white and bake another 15-20 minutes until golden and cooked. Cool completely.
-5. Spread half the caramel on the pastry case, layer bananas on top, then cover with remaining caramel. Chill in fridge.
-6. Whip the cream until thick and spoon over the tart. Grate dark chocolate over to garnish if using.
+1. **Marinate the pork**: Slice pork loin into thin slices. Marinate with cooking wine, black pepper powder, soy sauce, and egg white for about 20 minutes.
 
-## Notes
-- Serves 8-10.
-- Prep time: 30 minutes.
-- Cook time: 30-35 minutes.
-- An easy family favorite. Recommended to serve with a generous dollop of cream.
+2. **Coat the pork**: Evenly coat the marinated pork slices with dry potato starch.
+
+3. **Make starch batter**: Mix potato starch with water and a little cooking oil to make a batter that is sticky and can pull threads.
+
+4. **Dip pork in batter**: Dip the coated pork slices into the starch batter.
+
+5. **First fry**: Fry the pork slices in oil heated to about 70% hot until set and firm. Remove from oil.
+
+6. **Second fry**: After the pork slices cool slightly, fry again in hotter oil until golden and crispy. Remove and set aside.
+
+7. **Prepare sweet and sour sauce**: Mix white sugar and vinegar in about a 1:1 ratio, add a little soy sauce, chicken essence, salt, and cooking wine.
+
+8. **Make sauce in wok**: Leave a little oil in the wok, stir fry chopped scallions, ginger, garlic, and shredded carrots until fragrant. Add the sweet and sour sauce, bring to a boil, and thicken with a little water mixed with starch.
+
+9. **Combine and serve**: Quickly toss the fried pork slices in the sauce until evenly coated. Serve immediately.
+
+Enjoy your crispy, sweet, and sour Guo Bao Rou!
