@@ -7,7 +7,7 @@ if len(sys.argv) < 2:
 
 target_file = sys.argv[1]
 
-with open(target_file, 'r') as file:
+with open(target_file, 'r', encoding='utf-8') as file:
     content = file.readlines()
 
 start_line_index = None
@@ -40,5 +40,5 @@ for i, line in enumerate(content):
     else:
         new_content.append(line)
 
-with open(target_file, 'w') as file:
+with open(target_file, 'w', encoding='utf-8') as file:
     file.writelines(new_content)
