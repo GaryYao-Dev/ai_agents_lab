@@ -1549,3 +1549,1411 @@ Now it is time to put these to use.
 - The project involves multiple MCP servers providing tools and resources, including accounts, market data, memory, search, and push notifications.
 - Emphasis is placed on experimentation and understanding, not on using the system for real trading decisions.
 - The project demonstrates how to create and integrate custom MCP servers and tools to empower autonomous agents.
+
+### Viewing the User Interface for Trading Activity
+
+#### Creating MCP Servers
+
+We have gathered our parameters into parameter lists. Now, we will create MCP servers by instantiating them with each of those parameters and a 32-second timeout. This process results in a collection of MCP servers ready for use.
+
+#### Defining Agents: Trader and Researcher
+
+We will define two different agents: a trader who makes trading decisions, and a researcher who conducts market research. The trader will utilize the researcher agent. From week two in the OpenAI agents SDK, when one agent uses another, the recommended approach is to convert the other agent into a tool so it can be used seamlessly. We will apply this pattern here.
+
+#### Researcher Agent Setup
+
+We start by defining our researcher agent with the following system prompt:
+
+"You are a financial researcher. You search the web for interesting news, carry out deeper research, and respond with your findings."
+
+We also provide the current date directly in the prompt. This approach avoids adding complexity by forcing the agent to run a separate tool to look up the date. We then pass in our MCP servers to define the researcher agent.
+
+#### Using the Researcher Agent as a Tool
+
+To enable the trader to use the researcher as a tool, we call the `as_tool` method on the researcher agent, providing a name and description. This makes the researcher agent available for use by other agents as a tool, which is a common pattern in the OpenAI agents SDK.
+
+#### Testing the Researcher Agent Directly
+
+Before integrating the researcher as a tool, we test it directly by asking, "What's the latest news on Amazon?" We connect to all MCP servers and run the researcher agent with a maximum of 30 turns, allowing it to perform deep research beyond the default 10 turns. This flexibility helps prevent premature termination of complex queries.
+
+#### Research Agent Trace Analysis
+
+Upon receiving the response about Amazon, we examine the trace to understand the agent's behavior. The researcher performed multiple Brave searches and fetched several web pages before formulating its answer. Reviewing these traces is essential to verify the agent's research process and data sources.
+
+#### Trader Agent Setup
+
+We begin by assigning a strategy to our trader, which is stored in the account. This allows traders to modify their strategies autonomously if desired. For example, Ed's initial strategy is to be a day trader who aggressively buys and sells shares based on news and market conditions. We initialize Ed's account with $10,000 ready to invest, an empty portfolio, and no transactions, preparing him for trading activity.
+
+#### Creating the Trader Agent
+
+The trader agent, named Ed, reads its account details and strategy as resources via MCP clients. These MCP clients communicate with MCP servers that provide the resources by invoking business logic. This demonstrates that MCP can be used not only for tools but also for resources, which are simply text snippets added to the agent's prompt to provide context for decision-making.
+
+#### Trader Agent System Prompt
+
+The system prompt for the trader agent includes:
+
+- Identification as a trader managing a portfolio of shares named Ed.
+- Access to tools necessary for trading.
+- The investment strategy injected from the resource.
+- The current holdings and balance from the account resource.
+- Instructions to make decisions based on available tools.
+
+This prompt is constructed by embedding JSON-formatted strategy and account details, which are well-understood by large language models.
+
+#### Running the Trader Agent
+
+We connect to each MCP server, convert the researcher agent into a tool, and create the trader agent with its instructions and tools, including the researcher tool. We use GPT-4-mini as the model for the trader agent and run it with a maximum of 30 turns to allow extensive interaction and decision-making. The trader agent then executes trades based on its strategy and research findings.
+
+#### Trader Agent Output and Behavior
+
+The trader agent, Ed, produces a summary of actions including research results and executed trades such as buying and selling shares. The current portfolio status and next steps are also provided. This demonstrates the agent's ability to collaborate with the researcher tool and utilize resources effectively.
+
+#### Analyzing the Trader Agent Trace
+
+Examining the trace reveals that Ed spent about half the time in research mode, using the researcher tool extensively. The trace shows multiple Brave searches, web page fetches, and retrieval of market data such as tickers, last trades, quotes, and close-of-market prices. The agent then executed trades, including buying and selling shares of Disney and Tesla, consistent with its aggressive trading strategy.
+
+#### Reviewing Trading Results
+
+By reading the resource again via the MCP client, we observe that the cash balance has decreased due to trades, and the portfolio holds 25 shares of Disney. This confirms the trader agent's actions and updates to its account state.
+
+#### Next Steps
+
+We will now proceed to explore some Python modules relevant to this trading agent setup.
+
+#### Key Takeaways
+
+- Created MCP servers with specified parameters and timeout for agent communication.
+- Defined two agents: a researcher agent used as a tool and a trader agent that uses the researcher.
+- Demonstrated how to pass resources as context to agents using MCP clients.
+- Showcased the collaboration between agents and the use of traces to analyze agent actions.
+
+### How Trading Agents Operate and Make Decisions
+
+#### Investigating Trading Agent Behavior
+
+We observed an intentional hiccup in the agent's trading activity. After stopping the recording, I noticed that the agent bought Tesla stock, but this purchase was not reported or reflected in the final holdings. Let's investigate what happened.
+
+Upon reviewing the trace logs and loading more entries, it became clear that the agent indeed bought 50 Disney shares followed by 30 Tesla shares. However, an error was returned from the execution tool stating "Insufficient funds to buy shares." This error message was implemented by our crew agents in week three as a business requirement to prevent purchasing more shares than affordable.
+
+This error message was surfaced back in the logs, explaining why those shares were not actually bought and why they were not included in the summary or the final holdings. Everything is working perfectly as designed, and this behavior should be monitored in subsequent steps.
+
+#### Transitioning from Experimentation to Code
+
+Now, we will examine some Python modules and code. This highlights an important point: when building genetic frameworks or solutions to business problems, it is best to start in the lab environment. Begin with notebooks experimenting with prompts and different agent configurations before moving to Python modules.
+
+Many people ask how to build an agent solution for a commercial problem and want to dive straight into coding multiple agents and designing complex diagrams. However, it is crucial to start small, experimenting with prompts to understand agent capabilities, coherence, instruction following, and balancing autonomy. These insights come through practice rather than premature large-scale coding.
+
+We have followed this approach by experimenting in the lab and are now ready to translate our work into code. I will demonstrate this through three different files: MCP servers, templates, and traders.
+
+#### MCP Parameters Module
+
+First, the MCP parameters are defined in the `MCP_params.py` file. This file organizes the MCP server parameters separately from other code, maintaining tidy separation of concerns.
+
+In this module, different MCP parameters are set up for later use when creating MCP servers. For market data, either the official Polygon MCP server or a custom market server that caches results is selected. The custom server helps avoid exceeding free Polygon IO limits.
+
+The full set of MCP servers for our trader includes:
+
+- Accounts server: a homegrown MCP server for account management.
+- Push server: a custom server sending push notifications.
+- Market data server: for retrieving market data.
+
+For the researcher, a separate set of MCP servers is defined:
+
+- A fetch server using Playwright browser to fetch pages.
+- Brave search API server for web searches.
+- SQL-based memory server, with separate memory files per trader based on their name.
+
+#### Templates Module
+
+The `templates.py` module contains functions that return prompt instructions or strings. This separation keeps large text blocks out of the main functionality code, improving organization and maintainability.
+
+This module includes researcher instructions, research tool definitions, trader instructions, and prompts. For example, the current date is inserted into prompts to avoid requiring the agent to call external tools for this information. Strategy and account details are also embedded directly in prompts.
+
+Separating prompt texts into a dedicated module is a good practice, similar to how frameworks like LangChain or Crew AI handle prompt templates, often using YAML files. Although we are not using those frameworks, adopting this discipline enhances clarity and ease of editing.
+
+#### Key Takeaways
+
+- The agent's error handling prevents buying shares without sufficient funds, ensuring accurate portfolio updates.
+- Experimentation in a lab environment with prompts and agent configurations is crucial before coding.
+- Organizing code into separate modules like MCP parameters, templates, and traders enhances maintainability.
+- Separating prompt texts into a dedicated module allows easier updates and cleaner code structure.
+
+### Portfolio Management with Four Autonomous Agents
+
+#### Introduction to the Trader Module
+
+In this session, we examine `traders.py`, the module responsible for defining our trader agents.
+
+#### Advanced Python Context Management
+
+At the start, there is some advanced Python code that may seem confusing initially. When working with the OpenAI agents SDK, it is beneficial to use context managers to wrap the creation of a server, as shown with the `async with` statement and the server studio, passing in parameters as a server.
+
+However, if you have many servers, you would need a separate `with` statement for each, leading to deeply nested and less readable code. There is a Python technique that allows you to iterate over multiple context managers without stacking them. With async code, you can use an async exit stack and enter each context in a list. This construct iterates over the MCP server parameters and effectively performs a `with` for each one in turn.
+
+This approach is used to make the code neater, but you could also use the manual method, which would be more nested but simpler.
+
+#### Exploring the Trader Module
+
+This module takes what was developed in the lab and converts it into a Python module. At the top, there is functionality to switch between different models, so you are not limited to OpenAI. You can use DeepSeek, Grok, Google, or OpenRouter to connect to any model of your choosing. The guides directory contains more information about using different models. Based on your selection, a different model provider will be chosen.
+
+Other than that, the module closely mirrors what was in the lab notebook, now structured as a class in a Python module. The advanced context management technique discussed earlier is implemented here. If you are unsure about this construct, you are encouraged to read more about it. Alternatively, you can use manual `with` statements, though the code will be more nested.
+
+#### Trader Agent Functionality
+
+The main functionality involves creating a trader agent and using a research agent as a tool. The code is packaged into a `Trader` class, allowing you to create an instance by providing a name, an agent, and a model name. The agent can alternate between making trading decisions and rebalancing its own portfolio. If the `do_trade` flag is set, it will execute a trade message; otherwise, it will run a rebalance message, instructing the agent to optimize its portfolio.
+
+#### Running the Trader Agent
+
+The `run` method is the main function that initiates the process. It starts a run and then toggles the `do_trade` flag. This module encapsulates all the features needed for an autonomous trader that alternates between trading and rebalancing, using a researcher agent and several MCP tools.
+
+#### Using the Trader Module in Practice
+
+Back in the lab, we import the `Trader` class from the module. We create a new instance called `add` and, since the name is `add`, it accesses the corresponding account. This is the same account that previously bought and sold Disney shares. We then call the `trader.run()` method to start the process.
+
+```python
+trader = Trader(name="add", agent=agent, model_name=model_name)
+trader.run()
+```
+
+The agent begins its activity, and we can observe its progress in the trace. It starts by listing tools, then the researcher performs a web search. The trader then processes several tickers, buying and selling shares of companies like Amazon, Apple, and Microsoft. At the end, it sends a push notification, although an error is reported for one of the tools. Despite the error, the push notification was received, indicating the process worked as intended.
+
+#### Verifying the Results
+
+We can call the `read_accounts` resource to check the outcome. The account now holds Amazon shares and reflects the transactions consistent with the trading activity. The trader agent ran successfully using the module and interacted with multiple MCP servers, collaborating with both a trader and a researcher agent.
+
+#### Counting Tools and Encouraging Experimentation
+
+To determine how many tools were used, we import the trader and researcher parameters from the MCP params module, sum them, and iterate through to count the tools. In total, there were six MCP servers and 44 tools available to the trader and researcher agents. This demonstrates the system's extensibility, and you are encouraged to add more tools to enhance the agents' capabilities.
+
+If you have finance or business knowledge, you can expand far beyond the 44 tools currently implemented. However, it is recommended to start by adding tools and experimenting in the lab to understand the models' capabilities before integrating them into the final architecture.
+
+#### Conclusion and Next Steps
+
+This concludes day four. It is important to replicate these steps yourself and review the code to understand how to build agent solutions. Customize and experiment with prompts in the module template `Test.py` to see how they affect the trader's behavior. The next session will unveil the full platform, provide finishing touches, and offer guidance on selecting the appropriate agent framework for your project.
+
+#### Key Takeaways
+
+- The `traders.py` module organizes trader agents using advanced Python context management for cleaner code.
+- The module supports multiple model providers, allowing flexibility beyond OpenAI.
+- Trader agents alternate between trading and rebalancing their portfolios, leveraging a researcher agent as a tool.
+- The system successfully executes trades and rebalancing, utilizing a large set of MCP tools, and encourages further experimentation and customization.
+
+### Day 4 — Summary
+
+#### Overview: Building the Capstone Autonomous Trading Floor
+
+Day 4 introduces the capstone project: an **autonomous equity trading simulation** featuring multiple trader agents powered by MCP servers. This project demonstrates how to apply agentic AI to a real commercial problem—analyzing financial markets and executing trades in simulated accounts.
+
+**Key Components:**
+
+- 4 autonomous trader agents (each with their own strategy)
+- 1 researcher agent (shared by traders as a tool)
+- 5+ MCP servers providing tools and resources
+- Simulated accounts from Week 3
+- Real market data from Polygon.io
+
+**⚠️ Critical Disclaimer:** This is an experimental learning project. **DO NOT use this for actual trading decisions.**
+
+#### Architecture: Multi-Agent Trading System
+
+The system involves two types of agents working together:
+
+1. **Trader Agents**: Make autonomous buy/sell decisions based on their strategy
+2. **Researcher Agent**: Performs web searches and analysis (used as a tool by traders)
+
+**MCP Servers Used:**
+
+**For Traders (3 servers):**
+
+- `accounts_server.py` - Custom MCP server for account management (from Day 2)
+- `push_server.py` - Custom server for push notifications
+- `market_server.py` OR official Polygon MCP server - Market data (depending on plan)
+
+**For Researchers (2 servers):**
+
+- `mcp-server-fetch` - Fetches web pages via headless browser
+- `@modelcontextprotocol/server-brave-search` - Web search API
+
+**Optional (in full implementation):**
+
+- `mcp-memory-libsql` - Graph-based memory for each trader
+
+**Total Tools Available:** 44+ tools across 6 MCP servers
+
+#### Step-by-Step Implementation
+
+##### Step 1: Environment Setup and MCP Server Configuration
+
+```python
+import os
+from dotenv import load_dotenv
+from agents import Agent, Runner, trace, Tool
+from agents.mcp import MCPServerStdio
+from IPython.display import Markdown, display
+from datetime import datetime
+from accounts_client import read_accounts_resource, read_strategy_resource
+from accounts import Account
+
+load_dotenv(override=True)
+
+# Check Polygon.io plan status
+polygon_api_key = os.getenv("POLYGON_API_KEY")
+polygon_plan = os.getenv("POLYGON_PLAN")
+
+is_paid_polygon = polygon_plan == "paid"
+is_realtime_polygon = polygon_plan == "realtime"
+
+print(f"Paid plan: {is_paid_polygon}")
+print(f"Realtime plan: {is_realtime_polygon}")
+```
+
+##### Step 2: Configure MCP Server Parameters
+
+**Smart Market Data Selection:**
+
+- Free plan users: Use custom `market_server.py` with caching to avoid rate limits
+- Paid plan users: Use official Polygon MCP server with full toolset
+
+```python
+# Market data server (conditional based on plan)
+if is_paid_polygon or is_realtime_polygon:
+    market_mcp = {
+        "command": "uvx",
+        "args": ["--from", "git+https://github.com/polygon-io/mcp_polygon@master", "mcp_polygon"],
+        "env": {"POLYGON_API_KEY": polygon_api_key}
+    }
+else:
+    market_mcp = {"command": "uv", "args": ["run", "market_server.py"]}
+
+# Trader's MCP servers
+trader_mcp_server_params = [
+    {"command": "uv", "args": ["run", "accounts_server.py"]},
+    {"command": "uv", "args": ["run", "push_server.py"]},
+    market_mcp
+]
+
+# Researcher's MCP servers
+brave_env = {"BRAVE_API_KEY": os.getenv("BRAVE_API_KEY")}
+researcher_mcp_server_params = [
+    {"command": "uvx", "args": ["mcp-server-fetch"]},
+    {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-brave-search"], "env": brave_env}
+]
+```
+
+##### Step 3: Create MCP Server Instances
+
+```python
+# Create MCP server instances with 30-second timeout
+researcher_mcp_servers = [
+    MCPServerStdio(params, client_session_timeout_seconds=30)
+    for params in researcher_mcp_server_params
+]
+
+trader_mcp_servers = [
+    MCPServerStdio(params, client_session_timeout_seconds=30)
+    for params in trader_mcp_server_params
+]
+
+# Combined list for connecting all servers
+mcp_servers = trader_mcp_servers + researcher_mcp_servers
+```
+
+##### Step 4: Create the Researcher Agent
+
+The researcher agent searches the web for financial news and trading opportunities. It's designed to be used **as a tool** by trader agents.
+
+```python
+async def get_researcher(mcp_servers) -> Agent:
+    instructions = f"""You are a financial researcher. You are able to search the web for interesting financial news,
+look for possible trading opportunities, and help with research.
+Based on the request, you carry out necessary research and respond with your findings.
+Take time to make multiple searches to get a comprehensive overview, and then summarize your findings.
+If there isn't a specific request, then just respond with investment opportunities based on searching latest news.
+The current datetime is {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+"""
+    researcher = Agent(
+        name="Researcher",
+        instructions=instructions,
+        model="gpt-4.1-mini",
+        mcp_servers=mcp_servers,
+    )
+    return researcher
+
+async def get_researcher_tool(mcp_servers) -> Tool:
+    """Convert researcher agent into a tool for use by trader agents"""
+    researcher = await get_researcher(mcp_servers)
+    return researcher.as_tool(
+        tool_name="Researcher",
+        tool_description="This tool researches online for news and opportunities, \
+            either based on your specific request to look into a certain stock, \
+            or generally for notable financial news and opportunities. \
+            Describe what kind of research you're looking for."
+    )
+```
+
+**Key Pattern:** Using `.as_tool()` method to convert one agent into a tool for another agent. This is the recommended pattern in OpenAI Agents SDK (different from handoffs).
+
+##### Step 5: Test the Researcher Directly
+
+Before using the researcher as a tool, test it independently:
+
+```python
+research_question = "What's the latest news on Amazon?"
+
+# Connect to all researcher MCP servers
+for server in researcher_mcp_servers:
+    await server.connect()
+
+researcher = await get_researcher(researcher_mcp_servers)
+
+with trace("Researcher"):
+    result = await Runner.run(researcher, research_question, max_turns=30)
+
+display(Markdown(result.final_output))
+```
+
+**Important:** Use `max_turns=30` (instead of default 10) to allow deep research with multiple searches and fetches.
+
+**Check the trace:** Visit https://platform.openai.com/traces to see:
+
+- Multiple Brave searches performed
+- Web pages fetched with the fetch tool
+- How the agent synthesized information
+
+##### Step 6: Initialize Trader Account with Strategy
+
+Each trader has a **strategy** stored in their account. This strategy guides their trading decisions.
+
+```python
+# Set Ed's trading strategy
+ed_initial_strategy = "You are a day trader that aggressively buys and sells shares based on news and market conditions."
+
+# Reset Ed's account with $10,000 and the strategy
+Account.get("Ed").reset(ed_initial_strategy)
+
+# View the account details
+display(Markdown(await read_accounts_resource("Ed")))
+display(Markdown(await read_strategy_resource("Ed")))
+```
+
+**Output shows:**
+
+- Balance: $10,000
+- Holdings: {} (empty portfolio)
+- Transactions: [] (no trades yet)
+- Strategy: day trader description
+
+##### Step 7: Create the Trader Agent
+
+The trader agent reads its **account details** and **strategy** as **MCP resources** (not just tools). These resources are injected into the agent's prompt as context.
+
+```python
+agent_name = "Ed"
+
+# Read resources via MCP clients
+account_details = await read_accounts_resource(agent_name)
+strategy = await read_strategy_resource(agent_name)
+
+# Construct trader instructions with embedded resources
+instructions = f"""
+You are a trader that manages a portfolio of shares. Your name is {agent_name} and your account is under your name, {agent_name}.
+You have access to tools that allow you to search the internet for company news, check stock prices, and buy and sell shares.
+Your investment strategy for your portfolio is:
+{strategy}
+Your current holdings and balance is:
+{account_details}
+You have the tools to perform a websearch for relevant news and information.
+You have tools to check stock prices.
+You have tools to buy and sell shares.
+You have tools to save memory of companies, research and thinking so far.
+Please make use of these tools to manage your portfolio. Carry out trades as you see fit; do not wait for instructions or ask for confirmation.
+"""
+
+prompt = """
+Use your tools to make decisions about your portfolio.
+Investigate the news and the market, make your decision, make the trades, and respond with a summary of your actions.
+"""
+```
+
+**Key Design Choices:**
+
+1. **Embed current date in prompt** - Avoids needing a tool call for date
+2. **Inject strategy and account as text** - JSON format is well-understood by LLMs
+3. **Explicit autonomy instruction** - "do not wait for instructions or ask for confirmation"
+4. **List available tool categories** - Helps agent understand capabilities
+
+##### Step 8: Run the Trader Agent
+
+```python
+# Connect all MCP servers (trader + researcher)
+for server in mcp_servers:
+    await server.connect()
+
+# Get researcher as a tool
+researcher_tool = await get_researcher_tool(researcher_mcp_servers)
+
+# Create trader agent
+trader = Agent(
+    name=agent_name,
+    instructions=instructions,
+    tools=[researcher_tool],  # Researcher agent as a tool
+    mcp_servers=trader_mcp_servers,  # Accounts, push, market data
+    model="gpt-4o-mini",
+)
+
+# Run with extended turns for complex trading workflow
+with trace(agent_name):
+    result = await Runner.run(trader, prompt, max_turns=30)
+
+display(Markdown(result.final_output))
+```
+
+**What happens:**
+
+1. Trader agent researches market news (calls researcher tool)
+2. Researcher performs web searches and fetches pages
+3. Trader checks specific stock prices (market data tools)
+4. Trader executes buy/sell trades (account tools)
+5. Trader sends push notification with summary
+6. Returns summary of actions taken
+
+##### Step 9: Verify Trading Results
+
+```python
+# Check updated account status
+await read_accounts_resource(agent_name)
+```
+
+**Expected changes:**
+
+- Cash balance decreased (shares purchased)
+- Holdings show new shares (e.g., 25 Disney shares)
+- Transactions list shows buy/sell operations
+
+##### Step 10: Analyze the Trace
+
+Visit https://platform.openai.com/traces and examine:
+
+**Research phase:**
+
+- Multiple Brave searches for market news
+- Web page fetches for detailed information
+- Synthesis of findings
+
+**Trading phase:**
+
+- `lookup_share_price` calls for specific tickers
+- `get_snapshot_ticker` or `get_last_trade` (if paid plan)
+- `buy_shares` and `sell_shares` operations
+- Account balance updates
+
+**Error handling:**
+
+- If insufficient funds: error message returned
+- Agent adjusts and doesn't report failed trades in summary
+- Business logic from Week 3 prevents over-spending
+
+#### Advanced Pattern: Error Handling Example
+
+```python
+# Example trace showing error handling:
+# Agent tries: buy_shares("TSLA", 30)
+# Tool returns: {"error": "Insufficient funds to buy shares"}
+# Agent response: Doesn't include TSLA in final holdings summary
+```
+
+This demonstrates proper error propagation from MCP tools back to the agent, allowing the agent to adjust its behavior.
+
+#### Modularizing Code: From Lab to Production
+
+**Key Principle:** Always experiment in notebooks first, then refactor into modules.
+
+#### File Structure Created:
+
+```
+6_mcp/
+├── 4_lab4.ipynb          # Experimentation notebook
+├── mcp_params.py         # MCP server configurations
+├── templates.py          # Prompt templates and instructions
+├── traders.py            # Trader class implementation
+├── accounts_server.py    # Account management MCP server
+├── market_server.py      # Market data MCP server (with caching)
+├── push_server.py        # Push notification MCP server
+├── accounts.py           # Account business logic
+├── market.py             # Market data wrapper
+└── database.py           # SQLite persistence
+```
+
+##### Module 1: `mcp_params.py`
+
+Separates MCP server configuration from business logic:
+
+```python
+# mcp_params.py
+import os
+
+def get_market_mcp_params():
+    """Returns market MCP params based on Polygon plan"""
+    polygon_api_key = os.getenv("POLYGON_API_KEY")
+    polygon_plan = os.getenv("POLYGON_PLAN")
+
+    if polygon_plan in ["paid", "realtime"]:
+        return {
+            "command": "uvx",
+            "args": ["--from", "git+https://github.com/polygon-io/mcp_polygon@master", "mcp_polygon"],
+            "env": {"POLYGON_API_KEY": polygon_api_key}
+        }
+    else:
+        return {"command": "uv", "args": ["run", "market_server.py"]}
+
+trader_mcp_server_params = [
+    {"command": "uv", "args": ["run", "accounts_server.py"]},
+    {"command": "uv", "args": ["run", "push_server.py"]},
+    get_market_mcp_params()
+]
+
+def researcher_mcp_server_params(trader_name):
+    """Returns researcher MCP params with trader-specific memory"""
+    return [
+        {"command": "uvx", "args": ["mcp-server-fetch"]},
+        {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+            "env": {"BRAVE_API_KEY": os.getenv("BRAVE_API_KEY")}
+        },
+        {
+            "command": "npx",
+            "args": ["-y", "mcp-memory-libsql"],
+            "env": {"LIBSQL_URL": f"file:./memory/{trader_name}.db"}
+        }
+    ]
+```
+
+**Benefits:**
+
+- Centralized configuration
+- Easy to add/remove MCP servers
+- Trader-specific memory databases
+- Clean separation of concerns
+
+##### Module 2: `templates.py`
+
+Separates prompt text from code:
+
+```python
+# templates.py
+from datetime import datetime
+
+def get_researcher_instructions():
+    """Returns researcher agent system prompt"""
+    return f"""You are a financial researcher. You are able to search the web for interesting financial news,
+look for possible trading opportunities, and help with research.
+Based on the request, you carry out necessary research and respond with your findings.
+Take time to make multiple searches to get a comprehensive overview, and then summarize your findings.
+If there isn't a specific request, then just respond with investment opportunities based on searching latest news.
+The current datetime is {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+"""
+
+def get_researcher_tool_description():
+    """Returns description for researcher tool"""
+    return """This tool researches online for news and opportunities, \
+either based on your specific request to look into a certain stock, \
+or generally for notable financial news and opportunities. \
+Describe what kind of research you're looking for."""
+
+def get_trader_instructions(agent_name, strategy, account_details):
+    """Returns trader agent system prompt with embedded resources"""
+    return f"""
+You are a trader that manages a portfolio of shares. Your name is {agent_name} and your account is under your name, {agent_name}.
+You have access to tools that allow you to search the internet for company news, check stock prices, and buy and sell shares.
+Your investment strategy for your portfolio is:
+{strategy}
+Your current holdings and balance is:
+{account_details}
+You have the tools to perform a websearch for relevant news and information.
+You have tools to check stock prices.
+You have tools to buy and sell shares.
+You have tools to save memory of companies, research and thinking so far.
+Please make use of these tools to manage your portfolio. Carry out trades as you see fit; do not wait for instructions or ask for confirmation.
+"""
+
+def get_trade_prompt():
+    """Returns user prompt for trading"""
+    return """
+Use your tools to make decisions about your portfolio.
+Investigate the news and the market, make your decision, make the trades, and respond with a summary of your actions.
+"""
+
+def get_rebalance_prompt():
+    """Returns user prompt for portfolio rebalancing"""
+    return """
+Review your current portfolio and strategy.
+Research the performance of your holdings and rebalance your portfolio if necessary.
+Make trades as needed and respond with a summary of your actions.
+"""
+```
+
+**Benefits:**
+
+- Easy to iterate on prompts without touching logic
+- Similar to LangChain/Crew AI YAML templates
+- Can version control prompt changes separately
+- Easier to A/B test different instructions
+
+##### Module 3: `traders.py`
+
+Main implementation bringing everything together:
+
+```python
+# traders.py (simplified)
+from contextlib import AsyncExitStack
+from agents import Agent, Runner, trace
+from agents.mcp import MCPServerStdio
+from mcp_params import trader_mcp_server_params, researcher_mcp_server_params
+from templates import (
+    get_researcher_instructions,
+    get_researcher_tool_description,
+    get_trader_instructions,
+    get_trade_prompt,
+    get_rebalance_prompt
+)
+from accounts_client import read_accounts_resource, read_strategy_resource
+
+class Trader:
+    def __init__(self, name, model="gpt-4o-mini"):
+        self.name = name
+        self.model = model
+        self.do_trade = True  # Alternates between trade and rebalance
+
+    async def run(self):
+        """Main execution method"""
+        # Advanced context management pattern
+        async with AsyncExitStack() as stack:
+            # Create all MCP servers efficiently
+            all_params = (
+                trader_mcp_server_params +
+                researcher_mcp_server_params(self.name)
+            )
+
+            mcp_servers = [
+                await stack.enter_async_context(
+                    MCPServerStdio(params, client_session_timeout_seconds=30)
+                )
+                for params in all_params
+            ]
+
+            # Split servers by type
+            trader_servers = mcp_servers[:len(trader_mcp_server_params)]
+            researcher_servers = mcp_servers[len(trader_mcp_server_params):]
+
+            # Create researcher as tool
+            researcher = Agent(
+                name="Researcher",
+                instructions=get_researcher_instructions(),
+                model=self.model,
+                mcp_servers=researcher_servers
+            )
+            researcher_tool = researcher.as_tool(
+                tool_name="Researcher",
+                tool_description=get_researcher_tool_description()
+            )
+
+            # Read resources
+            account_details = await read_accounts_resource(self.name)
+            strategy = await read_strategy_resource(self.name)
+
+            # Create trader agent
+            trader = Agent(
+                name=self.name,
+                instructions=get_trader_instructions(
+                    self.name, strategy, account_details
+                ),
+                tools=[researcher_tool],
+                mcp_servers=trader_servers,
+                model=self.model
+            )
+
+            # Alternate between trading and rebalancing
+            prompt = get_trade_prompt() if self.do_trade else get_rebalance_prompt()
+            self.do_trade = not self.do_trade  # Toggle for next run
+
+            # Execute with tracing
+            with trace(self.name):
+                result = await Runner.run(trader, prompt, max_turns=30)
+
+            return result.final_output
+```
+
+##### Advanced Python Pattern: AsyncExitStack
+
+**Problem:** Multiple nested context managers are hard to read:
+
+```python
+# Ugly nested approach
+async with MCPServerStdio(params1) as server1:
+    async with MCPServerStdio(params2) as server2:
+        async with MCPServerStdio(params3) as server3:
+            async with MCPServerStdio(params4) as server4:
+                async with MCPServerStdio(params5) as server5:
+                    mcp_servers = [server1, server2, server3, server4, server5]
+                    # Rest of code...
+```
+
+**Solution:** Use `AsyncExitStack` to manage multiple context managers:
+
+```python
+from contextlib import AsyncExitStack
+
+# Clean approach with AsyncExitStack
+async with AsyncExitStack() as stack:
+    mcp_servers = [
+        await stack.enter_async_context(MCPServerStdio(params))
+        for params in all_mcp_params
+    ]
+    # Rest of code at the same indentation level...
+```
+
+**Benefits:**
+
+- No deep nesting
+- Works with dynamic lists of context managers
+- Cleaner, more maintainable code
+- All servers properly cleaned up on exit
+
+#### Using the Trader Module
+
+```python
+from traders import Trader
+
+# Create trader instance
+trader = Trader("Ed")
+
+# Run autonomous trading session
+await trader.run()
+
+# Check results
+await read_accounts_resource("Ed")
+```
+
+**What happens automatically:**
+
+1. All MCP servers spawned and connected
+2. Researcher agent created and converted to tool
+3. Account resources read via MCP
+4. Trader agent makes autonomous decisions
+5. Trades executed
+6. Push notification sent
+7. Summary returned
+8. All servers cleanly shut down
+
+#### Multi-Model Support
+
+The `traders.py` module supports multiple LLM providers:
+
+```python
+# In traders.py
+def get_model_config(model_name):
+    """Returns model configuration for different providers"""
+    if model_name.startswith("gpt"):
+        return {"model": model_name}  # OpenAI
+    elif model_name.startswith("deepseek"):
+        return {"model": model_name, "api_base": "https://api.deepseek.com"}
+    elif model_name.startswith("grok"):
+        return {"model": model_name, "api_base": "https://api.x.ai"}
+    # ... etc
+```
+
+**Usage:**
+
+```python
+trader = Trader("Ed", model="gpt-4o-mini")  # OpenAI
+trader = Trader("Ed", model="deepseek-chat")  # DeepSeek
+trader = Trader("Ed", model="grok-2")  # Grok
+```
+
+See guides directory for detailed multi-model setup instructions.
+
+#### Tool and Server Count
+
+```python
+from mcp_params import trader_mcp_server_params, researcher_mcp_server_params
+
+# Combine all MCP server params
+all_params = trader_mcp_server_params + researcher_mcp_server_params("Ed")
+
+# Count servers and tools
+count = 0
+for params in all_params:
+    async with MCPServerStdio(params=params, client_session_timeout_seconds=60) as server:
+        mcp_tools = await server.list_tools()
+        count += len(mcp_tools)
+
+print(f"We have {len(all_params)} MCP servers, and {count} tools")
+```
+
+**Output:**
+
+```
+We have 6 MCP servers, and 44 tools
+```
+
+**Breakdown by server:**
+
+- Accounts server: ~5 tools (buy, sell, balance, holdings, strategy)
+- Push server: 1 tool (send notification)
+- Market server (free): 1 tool (get snapshot)
+- Market server (paid): 20+ tools (tickers, trades, quotes, financials, etc.)
+- Fetch server: 1 tool (fetch web page)
+- Brave search: 2 tools (web search, local search)
+- Memory server: 6 tools (create entities, relations, search, delete, etc.)
+
+#### Key Design Principles Demonstrated
+
+##### 1. Start with Experimentation, Not Engineering
+
+**Don't do this:**
+
+- Jump straight to complex multi-agent architectures
+- Draw elaborate system diagrams prematurely
+- Write production code before understanding behavior
+
+**Do this instead:**
+
+- Start in notebook environment
+- Experiment with prompts and instructions
+- Test single agent behavior first
+- Understand model capabilities and limitations
+- Iterate on instructions based on traces
+- Only then refactor into modules
+
+##### 2. Resources vs. Tools in MCP
+
+**Tools:** Functions the agent can call to perform actions
+
+- `buy_shares(ticker, quantity)`
+- `lookup_share_price(ticker)`
+- `brave_web_search(query)`
+
+**Resources:** Text snippets injected into the agent's context
+
+- Account balance and holdings (JSON)
+- Trading strategy (text)
+- Account report (markdown)
+
+**When to use resources:**
+
+- Static or semi-static context needed for every decision
+- Better than forcing tool calls for simple data access
+- Reduces tool call overhead
+- Good for providing "state" to agents
+
+##### 3. Agent-as-Tool Pattern
+
+When one agent needs to use another agent's capabilities:
+
+```python
+# Create the sub-agent
+researcher = Agent(name="Researcher", instructions=..., mcp_servers=...)
+
+# Convert to tool using .as_tool()
+researcher_tool = researcher.as_tool(
+    tool_name="Researcher",
+    tool_description="Detailed description for the LLM"
+)
+
+# Pass to parent agent
+trader = Agent(
+    name="Trader",
+    tools=[researcher_tool],  # Researcher agent becomes a tool
+    mcp_servers=...
+)
+```
+
+**This is different from handoffs:**
+
+- Handoffs: Transfer control permanently to another agent
+- Agent-as-tool: Call another agent like a function, get result back
+
+##### 4. Autonomous vs. Conversational Agents
+
+**Conversational agents:**
+
+- Wait for user confirmation
+- Ask clarifying questions
+- Explain intended actions
+
+**Autonomous agents (like our traders):**
+
+- Make decisions independently
+- Execute without confirmation
+- Report actions after completion
+
+**Key instruction for autonomy:**
+
+```python
+"Please make use of these tools to manage your portfolio.
+Carry out trades as you see fit; do not wait for instructions or ask for confirmation."
+```
+
+##### 5. Trace-Driven Development
+
+Always check traces at https://platform.openai.com/traces to:
+
+- Verify which tools were called
+- Understand agent decision-making process
+- Debug unexpected behavior
+- Identify if agent is using wrong tools
+- See error messages from tools
+- Validate research quality
+
+**Traces reveal:**
+
+- Tool call sequences
+- Parameters passed to tools
+- Tool responses (including errors)
+- Agent reasoning between calls
+- Total turns used
+
+#### Push Notification Server Example
+
+Simple custom MCP server for notifications:
+
+```python
+# push_server.py
+from mcp import FastMCP
+from pydantic import BaseModel
+
+mcp = FastMCP("push_notification_server")
+
+class PushMessage(BaseModel):
+    message: str
+
+@mcp.tool()
+def push(message: PushMessage) -> str:
+    """Send a push notification with a brief message"""
+    # In production, this would integrate with notification service
+    # For demo, just print
+    print(f"\n📱 PUSH NOTIFICATION: {message.message}\n")
+    return f"Notification sent: {message.message}"
+
+if __name__ == "__main__":
+    mcp.run(transport="stdio")
+```
+
+**Why create this as MCP server?**
+
+- Practice creating custom servers
+- Consistency with other tools
+- Easy to swap implementations later
+
+**But honestly:** Could just be a regular tool function. Creating MCP server adds overhead without benefit for internal-only tools.
+
+#### Trading Strategy Autonomy
+
+Each trader can modify their own strategy:
+
+```python
+# Initial strategy
+"You are a day trader that aggressively buys and sells shares based on news and market conditions."
+
+# Agent can call change_strategy tool
+change_strategy("Focus on tech stocks with strong quarterly earnings")
+
+# Strategy persisted in account
+```
+
+This demonstrates **meta-autonomy**: agents not only trade autonomously but can also evolve their own trading strategies.
+
+#### Error Propagation and Business Logic
+
+From Week 3's `accounts.py`:
+
+```python
+def buy_shares(self, ticker, quantity, reason):
+    price = get_share_price(ticker)
+    total_cost = price * quantity
+
+    if total_cost > self.balance:
+        return {"error": "Insufficient funds to buy shares"}
+
+    self.balance -= total_cost
+    self.holdings[ticker] = self.holdings.get(ticker, 0) + quantity
+    # ... record transaction ...
+    return {"success": True, "new_balance": self.balance}
+```
+
+**MCP server wraps this:**
+
+```python
+# accounts_server.py
+@mcp.tool()
+def buy_shares(ticker: str, quantity: int, reason: str) -> dict:
+    """Buy shares of a company"""
+    account = Account.get(current_account_name)
+    return account.buy_shares(ticker, quantity, reason)
+```
+
+**Agent sees the error:**
+
+```python
+# Agent calls: buy_shares("TSLA", 50, "Tesla looks promising")
+# Response: {"error": "Insufficient funds to buy shares"}
+# Agent adapts: Doesn't report TSLA purchase in summary
+```
+
+This demonstrates proper error handling across the MCP boundary.
+
+#### Testing Individual Components
+
+```python
+# Test researcher independently
+researcher = await get_researcher(researcher_mcp_servers)
+result = await Runner.run(researcher, "What's the latest on Apple?")
+
+# Test trader without researcher
+trader = Agent(
+    name="Ed",
+    instructions=instructions,
+    mcp_servers=trader_mcp_servers,  # No researcher tool
+    model="gpt-4o-mini"
+)
+
+# Test accounts directly (bypass MCP)
+from accounts import Account
+account = Account.get("Ed")
+account.buy_shares("AAPL", 10, "Testing")
+```
+
+**Why test components separately:**
+
+- Faster iteration
+- Isolate issues
+- Understand each piece
+- Build confidence before integration
+
+#### Extending the System
+
+**Ideas to explore:**
+
+1. **Add more tools:**
+
+   - Technical analysis (RSI, MACD, moving averages)
+   - Sentiment analysis of news
+   - Portfolio risk metrics
+   - Dividend tracking
+
+2. **Add more traders:**
+
+   - Different strategies (value investor, growth investor, index tracker)
+   - Different risk tolerances
+   - Different time horizons
+
+3. **Add coordination:**
+
+   - Trading floor manager agent
+   - Agents share research findings
+   - Compete or cooperate on opportunities
+
+4. **Add guardrails:**
+
+   - Maximum trade size limits
+   - Sector diversification requirements
+   - Stop-loss automation
+   - Daily loss limits
+
+5. **Add analytics:**
+
+   - Performance tracking over time
+   - Strategy effectiveness comparison
+   - Risk-adjusted returns
+   - Sharpe ratio calculation
+
+#### Complete Working Example: Full Trader Session
+
+```python
+# Complete end-to-end example
+import os
+from dotenv import load_dotenv
+from agents import Agent, Runner, trace
+from agents.mcp import MCPServerStdio
+from accounts_client import read_accounts_resource, read_strategy_resource
+from accounts import Account
+from datetime import datetime
+
+load_dotenv(override=True)
+
+# 1. Setup MCP server parameters
+polygon_api_key = os.getenv("POLYGON_API_KEY")
+is_paid = os.getenv("POLYGON_PLAN") == "paid"
+
+market_mcp = (
+    {"command": "uvx", "args": ["--from", "git+https://github.com/polygon-io/mcp_polygon@master", "mcp_polygon"], "env": {"POLYGON_API_KEY": polygon_api_key}}
+    if is_paid else
+    {"command": "uv", "args": ["run", "market_server.py"]}
+)
+
+trader_mcp_params = [
+    {"command": "uv", "args": ["run", "accounts_server.py"]},
+    {"command": "uv", "args": ["run", "push_server.py"]},
+    market_mcp
+]
+
+researcher_mcp_params = [
+    {"command": "uvx", "args": ["mcp-server-fetch"]},
+    {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-brave-search"], "env": {"BRAVE_API_KEY": os.getenv("BRAVE_API_KEY")}}
+]
+
+# 2. Create MCP server instances
+trader_servers = [MCPServerStdio(p, client_session_timeout_seconds=30) for p in trader_mcp_params]
+researcher_servers = [MCPServerStdio(p, client_session_timeout_seconds=30) for p in researcher_mcp_params]
+
+# 3. Initialize account
+Account.get("Ed").reset("You are a day trader that aggressively buys and sells shares based on news and market conditions.")
+
+# 4. Connect servers
+for server in trader_servers + researcher_servers:
+    await server.connect()
+
+# 5. Create researcher agent and convert to tool
+researcher = Agent(
+    name="Researcher",
+    instructions=f"""You are a financial researcher. Search the web for news and opportunities.
+The current datetime is {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}""",
+    model="gpt-4.1-mini",
+    mcp_servers=researcher_servers
+)
+researcher_tool = researcher.as_tool(
+    tool_name="Researcher",
+    tool_description="Research online for financial news and opportunities"
+)
+
+# 6. Read account resources
+account_details = await read_accounts_resource("Ed")
+strategy = await read_strategy_resource("Ed")
+
+# 7. Create trader agent
+trader = Agent(
+    name="Ed",
+    instructions=f"""You are a trader named Ed managing a portfolio.
+Your strategy: {strategy}
+Your current status: {account_details}
+Make autonomous trading decisions without asking for confirmation.""",
+    tools=[researcher_tool],
+    mcp_servers=trader_servers,
+    model="gpt-4o-mini"
+)
+
+# 8. Run trading session
+with trace("Ed"):
+    result = await Runner.run(
+        trader,
+        "Use your tools to make portfolio decisions. Investigate, decide, trade, and summarize.",
+        max_turns=30
+    )
+
+# 9. Display results
+print(result.final_output)
+print("\nFinal Account Status:")
+print(await read_accounts_resource("Ed"))
+```
+
+#### Environment Variables Required
+
+```bash
+# .env file for Day 4
+OPENAI_API_KEY=your_openai_key
+
+# Polygon.io (choose free or paid)
+POLYGON_API_KEY=your_polygon_key
+# POLYGON_PLAN=paid  # Optional: uncomment for paid plan
+
+# Brave Search
+BRAVE_API_KEY=your_brave_key
+```
+
+#### Key Files Reference
+
+**From Day 4:**
+
+- `6_mcp/4_lab4.ipynb` - Full experimentation notebook
+- `6_mcp/traders.py` - Production Trader class
+- `6_mcp/mcp_params.py` - MCP server configurations
+- `6_mcp/templates.py` - Prompt templates
+- `6_mcp/push_server.py` - Custom notification server
+
+**From Previous Days:**
+
+- `6_mcp/accounts_server.py` - Account management (Day 2)
+- `6_mcp/accounts.py` - Business logic (Week 3)
+- `6_mcp/market_server.py` - Market data with caching (Day 3)
+- `6_mcp/market.py` - Polygon.io wrapper (Day 3)
+- `6_mcp/accounts_client.py` - MCP client utilities (Day 2)
+
+#### Troubleshooting Common Issues
+
+**Issue:** Agent doesn't use researcher tool
+**Solution:**
+
+- Check trace to see what tools were called
+- Improve researcher tool description
+- Upgrade to better model (gpt-4.1-mini instead of gpt-4o-mini)
+- Add explicit instruction: "Use your Researcher tool to investigate news"
+
+**Issue:** Insufficient funds error
+**Solution:**
+
+- This is expected behavior (business logic working correctly)
+- Check trace to see error propagation
+- Agent should adapt and not report failed trades
+
+**Issue:** MCP server timeout
+**Solution:**
+
+- Increase timeout: `client_session_timeout_seconds=60`
+- Check server is running: test params directly
+- Verify API keys are set correctly
+
+**Issue:** Rate limiting with Polygon free plan
+**Solution:**
+
+- Use custom `market_server.py` instead of official MCP
+- It caches full market snapshot to avoid repeated calls
+- Don't use paid-plan-only tools
+
+**Issue:** Trace shows unexpected tool calls
+**Solution:**
+
+- Review instructions for ambiguity
+- Add explicit guidance on when to use which tools
+- Consider removing tools that confuse the agent
+
+#### Performance Considerations
+
+**Model choice matters:**
+
+- `gpt-4o-mini`: Fast, cheaper, good for most trading
+- `gpt-4.1-mini`: Better tool selection, more reliable
+- `gpt-4o`: Slower, more expensive, best reasoning
+- `deepseek`: Cheaper alternative, test thoroughly
+- `grok-2`: Fast, good reasoning, X.AI integration
+
+**Turn limits:**
+
+- Default 10 turns often insufficient for complex trading
+- Use 30 turns for deep research + multiple trades
+- Monitor actual turns used in traces
+- Adjust based on agent behavior
+
+**MCP server timeouts:**
+
+- 30 seconds usually sufficient
+- Increase to 60 for slow network or busy servers
+- Too short = premature disconnection
+- Too long = slow failure feedback
+
+#### Summary of Day 4 Achievements
+
+By the end of Day 4, you have:
+
+✅ Built a complete autonomous trading agent system
+✅ Integrated 6 MCP servers providing 44+ tools
+✅ Created researcher agent that searches web for financial news
+✅ Converted researcher agent into a tool for traders
+✅ Implemented trader agents that make autonomous buy/sell decisions
+✅ Used MCP resources to provide context (strategy, account details)
+✅ Created custom MCP servers (accounts, market data, push notifications)
+✅ Refactored from notebook experimentation to production modules
+✅ Implemented advanced Python patterns (AsyncExitStack)
+✅ Demonstrated proper error handling across MCP boundaries
+✅ Showed how to trace and debug complex multi-agent interactions
+✅ Built a foundation for expanding to multiple traders and strategies
+
+**Most importantly:** You learned the critical workflow of starting with experimentation in notebooks, understanding agent behavior through traces, iterating on prompts, and only then moving to production code.
+
+This capstone project brings together everything from the course:
+
+- Week 1: Tool calling and agent patterns
+- Week 2: OpenAI Agents SDK
+- Week 3: Multi-agent systems (Crew AI)
+- Week 4: LangGraph patterns
+- Week 5: Autogen collaboration
+- Week 6: MCP protocol for tool integration
+
+#### Next Steps
+
+Day 5 will reveal the full trading floor with multiple traders, introduce the user interface for monitoring trading activity, and provide guidance on choosing the appropriate agent framework for your own projects.
+
+**To prepare:**
+
+1. Experiment with different trading strategies in `templates.py`
+2. Try adding new MCP servers from marketplaces
+3. Test different models and compare performance
+4. Review traces to understand agent decision patterns
+5. Consider how you'd apply these patterns to your domain
+
+**Remember:** This is a learning project. Do not use for actual trading decisions! 🚫📈
+
+## Day 5
+
+### Which Agent Framework Should You Pick?
+
+#### Introduction to the Grand Finale
+
+This is the grand finale of the course, week six, day five, where we conclude the capstone project and address the question: which framework should be used for your project?
+
+#### Capstone Project: Autonomous Trading Floor
+
+The capstone project focuses on autonomous trading. The project is expanded into a trading floor with four traders. These traders are given autonomy to evolve their strategies, and the number of models is increased. A user interface is built, featuring an important extensibility component provided by the OpenAI agents SDK.
+
+#### Exploring the MCP Servers
+
+Within the MCP servers, there are components such as push notification and memory. More servers will be added over time, and users are encouraged to contribute as well. At the time of recording, there are six MCP servers with forty-four different tools and two resources, with plans to expand further.
+
+#### The Four Traders and Their Strategies
+
+The four traders are named Warren, George, Ray, and Cathy, each paying homage to a notable investor: Warren Buffett, George Soros, Ray Dalio, and Cathie Wood. Each trader's investment strategy is inspired by their namesake:
+
+- **Warren** : Value-oriented, prioritizing long-term wealth creation.
+- **George** : Aggressive macro trader.
+- **Ray** : Systematic, principles-based approach with macroeconomic insights.
+- **Cathy** : Pursues disruptive innovation, focusing on crypto ETFs.
+
+The strategies are defined in a Python module called `reset.py`. The `reset_traders` method resets these strategies. It is recommended to uncomment and run the reset line to initialize the correct strategies.
+
+#### Tracing Functionality in OpenAI Agents SDK
+
+The tracing functionality in the OpenAI agents SDK is lightweight and simple, but may lack the resiliency and plumbing of alternatives like LangChain with LangSmith. However, tracing in the OpenAI agents SDK is highly extensible. It can be connected to LangSmith, Weights and Biases, or extended to record trace information in custom ways. This allows programmatic handling of agent flow and actions based on tracing.
+
+#### Implementing Custom Tracing
+
+A subclass of the OpenAI `TracingProcessor` class is created, overriding four methods: `on_trace_start`, `on_trace_end`, `on_span_start`, and `on_span_end`. These methods receive objects describing the tracing events, allowing custom logging or actions. In this implementation, trace logs are written to a SQLite database, enabling tracking and further actions based on tracing activity.
+
+#### Displaying Trace Information in the User Interface
+
+The goal is to display trader activity and trace information in the user interface. The UI should reflect what is recorded in OpenAI's traces, providing visibility into trader actions and thoughts.
+
+#### The Gradio User Interface
+
+The user interface is built using Gradio. There is a `Trader` class to organize business rules and a `TraderView` class for visual elements. The UI periodically refreshes to display updated information. The final Gradio code creates and launches the screen. The UI code itself is not the focus; rather, the displayed information is what matters.
+
+#### Launching and Observing the Trading App
+
+To launch the Gradio app, open a terminal, navigate to the sixth folder, and run the app. The UI displays four columns, each representing a trader:
+
+- Warren: Controlled by GPT-4-1 Mini
+- George: DeepSeek V3
+- Ray: Gemini 2.5 Flash
+- Cathy: Grok 3 Mini (for crypto)
+
+All traders started with $10,000. After several weeks, all are profitable, with Cathy currently leading. The UI shows portfolio details, trace information, and a chart of portfolio performance.
+
+#### Dynamic vs. Static Data in the UI
+
+Currently, the UI displays a snapshot of the database data for the four traders. The next step is to observe dynamic trading activity by running the traders and watching their actions in real time.
+
+#### Key Takeaways
+
+- The capstone project involves creating an autonomous trading floor with four traders, each inspired by a famous investor.
+- The OpenAI agents SDK's tracing functionality is extensible and can be integrated with external tools or custom logging.
+- The user interface for the trading floor is built using Gradio, displaying trader performance and trace information.
+- Each trader is controlled by a different AI model, and their strategies and performance can be monitored through the UI.
